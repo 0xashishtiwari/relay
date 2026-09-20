@@ -1,0 +1,12 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: relay-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - relay-redis-data:/data
+    command: redis-server --appendonly yes
+
+volumes:
+  relay-redis-data:

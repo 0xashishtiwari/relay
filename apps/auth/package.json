@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "express": "^5.2.1",
+    "@repo/redis" : "workspace:*",
     "firebase-admin": "^14.4.0",
     "mongoose": "^9.10.1"
   }
