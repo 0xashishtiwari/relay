@@ -20,6 +20,7 @@
   "dependencies": {
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
+    "@repo/redis": "workspace:*",
     "express": "^5.2.1",
     "express-http-proxy": "^2.1.2"
   }

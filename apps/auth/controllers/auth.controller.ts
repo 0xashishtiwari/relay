@@ -35,6 +35,7 @@ export const loginController = async (req: Request, res: Response) => {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "strict",
+            path: "/",
             maxAge: 1000 * 60 * 60 * 24 * 7 // 7 days
         });
 
@@ -59,7 +60,7 @@ export const loginController = async (req: Request, res: Response) => {
 
 export const logoutController = async (req: Request, res: Response) => {
     try{
-        const { session } = req.cookies;
+        const session = req.cookies?.session;
         if(session){
             await redisClient.del(`session:${session}`);
             res.clearCookie("session");

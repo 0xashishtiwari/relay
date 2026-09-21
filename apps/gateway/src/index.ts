@@ -2,8 +2,14 @@ import express from "express";
 import proxy from "express-http-proxy";
 import cors from "cors";
 import cokkieParser from "cookie-parser";
-const app = express();
+import protect from "../middleware/auth.middleware";
+import { getCurrentUser } from "../controllers/user.controller";
+import { proxyWithHeader } from "../utils/proxyWithHeader";
 
+
+
+
+const app = express();
 app.use(express.json());
 app.use(cors({
     origin: process.env.FRONTEND_URL,
@@ -11,11 +17,13 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
 }));
-app.use(cokkieParser());    
+app.use(cokkieParser());
 
-app.use('/auth' , proxy(process.env.AUTH_SERVICE_URL as string, {
-   
-}));
+app.use('/auth', proxy(process.env.AUTH_SERVICE_URL as string));
+
+app.use('/chat', protect, proxyWithHeader(process.env.CHAT_SERVICE_URL as string));
+
+app.use('/agent', protect, proxy(process.env.AGENT_SERVICE_URL as string));
 
 app.use("/health", (_, res) => {
     res.status(200).json({
@@ -24,6 +32,7 @@ app.use("/health", (_, res) => {
     })
 })
 
+app.get("/me", protect, getCurrentUser);
 app.get("/", (_, res) => {
     res.status(200).json({
         service: "gateway",
@@ -35,5 +44,5 @@ app.get("/", (_, res) => {
 const PORT = Number(process.env.PORT);
 
 app.listen(PORT, () => {
-  console.log(`Gateway running on http://localhost:${PORT}`);
+    console.log(`Gateway running on http://localhost:${PORT}`);
 });
