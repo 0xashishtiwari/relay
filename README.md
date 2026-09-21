@@ -1,159 +1,147 @@
-# Turborepo starter
+﻿# Relay
 
-This Turborepo starter is maintained by the Turborepo core team.
+Relay is a multi-agent AI platform built as a modular TypeScript monorepo. It combines a Next.js frontend, a central API gateway, authentication services, and chat services to create a scalable foundation for AI-powered product experiences.
 
-## Using this example
+## Overview
 
-Run the following command:
+This project is designed to evolve into a platform where users can interact with multiple AI-driven services through a unified, secure, and extensible architecture.
 
-```sh
-npx create-turbo@latest
+## Architecture
+
+```text
+Browser
+  |
+  v
+web (Next.js)
+  |
+  v
+gateway (Express)
+  |   |   |
+  |   |   +--> auth service
+  |   |   +--> chat service
+  |   +--> agent service (planned / future extension)
+  |
+  +--> Redis
+  +--> authenticated user context
 ```
 
-## What's inside?
+## Services
 
-This Turborepo includes the following packages/apps:
+- `apps/web`: Next.js frontend
+- `apps/gateway`: request routing, auth middleware, request proxying
+- `apps/auth`: user and auth logic
+- `apps/chat`: conversation and message APIs
+- `packages/redis`: shared Redis helper package
+- `packages/ui`: shared UI components
 
-### Apps and Packages
+## Tech Stack
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `@next/eslint-plugin-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+- TypeScript
+- Bun
+- TurboRepo
+- Next.js
+- Express.js
+- MongoDB + Mongoose
+- Redis
+- Firebase Admin
+- Docker Compose
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+## Current Features
 
-### Utilities
+- Protected gateway routing
+- Header-based user propagation to downstream services
+- Firebase-enabled auth service
+- MongoDB-backed chat conversations
+- Redis containerized local setup
+- Shared monorepo package structure for future expansion
 
-This Turborepo has some additional tools already setup for you:
+## Project Structure
 
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+```text
+relay/
+├── apps/
+│   ├── auth/
+│   ├── chat/
+│   ├── gateway/
+│   └── web/
+├── packages/
+│   ├── redis/
+│   ├── ui/
+│   ├── eslint-config/
+│   └── typescript-config/
+├── docker-compose.yml
+├── package.json
+├── turbo.json
+├── tsconfig.json
+├── README.md
+└── index.ts
 ```
 
-Without global `turbo`, use your package manager:
+## Prerequisites
 
-```sh
-cd my-turborepo
-npx turbo build
-bun exec turbo build
-bun exec turbo build
+- Node.js 24+
+- Bun
+- Docker
+- MongoDB access
+- Firebase credentials for auth flow
+
+## Getting Started
+
+### Install dependencies
+
+```bash
+bun install
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+### Start Redis
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo build --filter=docs
+```bash
+docker compose up -d
 ```
 
-Without global `turbo`:
+### Run all apps in development mode
 
-```sh
-npx turbo build --filter=docs
-bun exec turbo build --filter=docs
-bun exec turbo build --filter=docs
+```bash
+bun run dev
 ```
 
-### Develop
+### Run a specific app
 
-To develop all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo dev
+```bash
+bun --cwd apps/web run dev
+bun --cwd apps/auth run dev
+bun --cwd apps/chat run dev
+bun --cwd apps/gateway run dev
 ```
 
-Without global `turbo`, use your package manager:
+## Environment Variables
 
-```sh
-cd my-turborepo
-npx turbo dev
-bun exec turbo dev
-bun exec turbo dev
+You will likely need local env values such as:
+
+```env
+PORT=4000
+FRONTEND_URL=http://localhost:3000
+AUTH_SERVICE_URL=http://localhost:4001
+CHAT_SERVICE_URL=http://localhost:4002
+AGENT_SERVICE_URL=http://localhost:4003
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+## Roadmap
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+The project is intended to support:
 
-```sh
-turbo dev --filter=web
-```
+- multi-agent orchestration
+- AI tool integration
+- real-time chat and messaging
+- role-based user access
+- scalable service decomposition
+- observability and monitoring
+- background job processing
 
-Without global `turbo`:
+## Status
 
-```sh
-npx turbo dev --filter=web
-bun exec turbo dev --filter=web
-bun exec turbo dev --filter=web
-```
+This repo is an early-stage multi-agent platform foundation. The scaffolding is in place, and the service-based architecture is ready for further feature development.
 
-### Remote Caching
+## License
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-bun exec turbo login
-bun exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-bun exec turbo link
-bun exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+This project currently does not include a license file. Add one if you plan to distribute or commercialize it.
