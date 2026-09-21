@@ -9,6 +9,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/express-http-proxy": "^1.6.7",
+    "@types/morgan": "^1.9.4",
     "types": "^0.1.1"
   },
   "scripts": {
@@ -22,6 +23,7 @@
     "cors": "^2.8.6",
     "@repo/redis": "workspace:*",
     "express": "^5.2.1",
-    "express-http-proxy": "^2.1.2"
+    "express-http-proxy": "^2.1.2",
+    "morgan": "^1.10.0"
   }
 }

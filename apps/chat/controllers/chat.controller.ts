@@ -97,6 +97,10 @@ export const saveMessage = async (req: Request, res: Response) => {
             content
         })
 
+        await Conversation.findByIdAndUpdate(conversationId, {
+            updatedAt: new Date()
+        });
+
         return res.status(201).json(message);
 
     } catch (err) {
@@ -107,7 +111,7 @@ export const saveMessage = async (req: Request, res: Response) => {
 
 export const getMessages = async (req: Request, res: Response) => {
     try {
-        const { conversationId } = req.body;
+        const conversationId = req.query.conversationId as string;
 
         if (!conversationId) {
             return res.status(400).json({ error: "conversationId is required" });

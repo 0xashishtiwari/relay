@@ -5,12 +5,13 @@ import cokkieParser from "cookie-parser";
 import protect from "../middleware/auth.middleware";
 import { getCurrentUser } from "../controllers/user.controller";
 import { proxyWithHeader } from "../utils/proxyWithHeader";
-
+import morgan from "morgan";
 
 
 
 const app = express();
 app.use(express.json());
+app.use(morgan("dev"));
 app.use(cors({
     origin: process.env.FRONTEND_URL,
     methods: ['GET', 'POST', 'PUT', 'DELETE'],

@@ -1,10 +1,12 @@
 import express from "express";
+import cookieParser from "cookie-parser";
 import {connectToDatabase} from "../config/database";
 import authRoutes from "../routes/auth.route";
 
 const app = express();
 
 app.use(express.json());
+app.use(cookieParser());
 app.use("/", authRoutes);
 
 app.get("/health", (_, res) => {

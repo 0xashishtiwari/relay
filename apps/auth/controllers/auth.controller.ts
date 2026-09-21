@@ -63,7 +63,12 @@ export const logoutController = async (req: Request, res: Response) => {
         const session = req.cookies?.session;
         if(session){
             await redisClient.del(`session:${session}`);
-            res.clearCookie("session");
+            res.clearCookie("session", {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "strict",
+                path: "/",
+            });
         }
         res.status(200).json({
             message: "Logout successful"
