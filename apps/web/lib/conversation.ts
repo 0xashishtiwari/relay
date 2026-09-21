@@ -46,3 +46,12 @@ export const saveMessage = async (
     });
     return data;
 };
+
+
+export const updateConversation = async (conversationId: string, title: string): Promise<Conversation> => {
+    const { data } = await api.put<Conversation>("/chat/conversation", {
+        conversationId,
+        title,
+    });
+    return data;
+};

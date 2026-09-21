@@ -14,6 +14,7 @@ interface ConversationStore {
   setConversations: (conversations: Conversation[]) => void;
   setSelectedConversation: (conversation: Conversation | null) => void;
   addConversation: (conversation: Conversation) => void;
+  updateConversation: (conversation: Conversation) => void;
   removeConversation: (conversationId: string) => void;
   setLoading: (loading: boolean) => void;
 }
@@ -32,6 +33,17 @@ export const useConversationStore = create<ConversationStore>((set) => ({
     set((state) => ({
       conversations: [conversation, ...state.conversations],
       selectedConversation: conversation,
+    })),
+
+  updateConversation: (conversation) =>
+    set((state) => ({
+      conversations: state.conversations.map((item) =>
+        item._id === conversation._id ? conversation : item,
+      ),
+      selectedConversation:
+        state.selectedConversation?._id === conversation._id
+          ? conversation
+          : state.selectedConversation,
     })),
 
   removeConversation: (conversationId) =>

@@ -10,14 +10,20 @@ import {
 } from "react";
 
 import {
+  createConversation as createConversationApi,
   getMessages,
   sendMessage as sendAgentMessage,
+  updateConversation as updateConversationApi,
 } from "../../lib/conversation";
-import Link from "next/link";
+import type { Conversation } from "../../store/conversation.store";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface ChatAreaProps {
   conversationId?: string;
   conversationTitle?: string;
+  onConversationCreated?: (conversation: Conversation) => void;
+  onConversationUpdated?: (conversation: Conversation) => void;
   isDesktopSidebarOpen?: boolean;
   onArtifactOpen?: () => void;
   onSidebarOpen?: () => void;
@@ -32,6 +38,8 @@ interface Message {
 const ChatArea = ({
   conversationId,
   conversationTitle = "New conversation",
+  onConversationCreated,
+  onConversationUpdated,
   onArtifactOpen,
   onSidebarOpen,
   isDesktopSidebarOpen = true,
@@ -117,26 +125,43 @@ const ChatArea = ({
 
     const content = message.trim();
 
-    if (!content || isGenerating || !conversationId) {
+    if (!content || isGenerating) {
       return;
     }
 
-    const userMessageId = crypto.randomUUID();
-
-    const userMessage: Message = {
-      id: userMessageId,
-      role: "user",
-      content,
-    };
-
-    setMessages((current) => [...current, userMessage]);
-    setMessage("");
     setSendError("");
     setIsGenerating(true);
 
+    let conversationToSync: Conversation | undefined;
+
     try {
+      let activeConversationId = conversationId;
+
+      if (!activeConversationId) {
+        const createdConversation = await createConversationApi();
+        activeConversationId = createdConversation._id;
+        conversationToSync = await updateConversationApi(
+          activeConversationId,
+          content
+        );
+      } else if (messages.length === 0) {
+        conversationToSync = await updateConversationApi(
+          activeConversationId,
+          content
+        );
+      }
+
+      const userMessage: Message = {
+        id: crypto.randomUUID(),
+        role: "user",
+        content,
+      };
+
+      setMessages((current) => [...current, userMessage]);
+      setMessage("");
+
       const response = await sendAgentMessage(
-        conversationId,
+        activeConversationId,
         content
       );
 
@@ -150,8 +175,24 @@ const ChatArea = ({
         ...current,
         assistantMessage,
       ]);
+
+      if (conversationToSync) {
+        if (conversationId) {
+          onConversationUpdated?.(conversationToSync);
+        } else {
+          onConversationCreated?.(conversationToSync);
+        }
+      }
     } catch (error) {
       console.error("Failed to send message:", error);
+
+      if (conversationToSync) {
+        if (conversationId) {
+          onConversationUpdated?.(conversationToSync);
+        } else {
+          onConversationCreated?.(conversationToSync);
+        }
+      }
 
       setSendError(
         "Relay couldn't complete that request. Try again."
@@ -235,7 +276,7 @@ const ChatArea = ({
   ------------------------------------------------------- */
 
   return (
-    <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-background text-foreground">
+    <main className="relay-fade-up flex min-h-0 min-w-0 flex-1 flex-col bg-background text-foreground">
 
       {/* =====================================================
           HEADER
@@ -510,9 +551,8 @@ const ChatArea = ({
                   sm:text-[16px]
                 "
               >
-                Create a conversation from the sidebar and let
-                Relay coordinate the right AI agents for your
-                task.
+                Give Relay a task and let it coordinate the right
+                AI agents for your work.
               </p>
             </div>
           )}
@@ -760,6 +800,7 @@ const ChatArea = ({
                     <div
                       key={item.id}
                       className={`
+                        relay-message-in
                         flex gap-4
                         ${
                           isUser
@@ -845,7 +886,6 @@ const ChatArea = ({
                                 sm:text-[16px]
                               `
                               : `
-                                whitespace-pre-wrap
                                 break-words
                                 text-[15px]
                                 leading-7
@@ -854,7 +894,17 @@ const ChatArea = ({
                               `
                           }
                         >
-                          {item.content}
+                          {isUser ? (
+                            item.content
+                          ) : (
+                            <div className="relay-markdown">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                              >
+                                {item.content}
+                              </ReactMarkdown>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -977,7 +1027,7 @@ const ChatArea = ({
               transition-all
               duration-200
               ${
-                conversationId
+                conversationId || message.trim()
                   ? `
                     border-border
                     bg-card
@@ -1007,10 +1057,10 @@ const ChatArea = ({
               placeholder={
                 conversationId
                   ? "Message Relay..."
-                  : "Create a conversation first..."
+                  : "Start a conversation..."
               }
               disabled={
-                !conversationId || isGenerating
+                isGenerating
               }
               rows={1}
               className="
@@ -1040,7 +1090,7 @@ const ChatArea = ({
 
                 <button
                   type="button"
-                  disabled={!conversationId}
+                  disabled={isGenerating}
                   aria-label="Attach file"
                   className="
                     flex h-9 w-9
@@ -1070,7 +1120,7 @@ const ChatArea = ({
 
                 <button
                   type="button"
-                  disabled={!conversationId}
+                  disabled={isGenerating}
                   className="
                     hidden
                     h-9
@@ -1108,8 +1158,7 @@ const ChatArea = ({
                 type="submit"
                 disabled={
                   !message.trim() ||
-                  isGenerating ||
-                  !conversationId
+                  isGenerating
                 }
                 aria-label="Send message"
                 className="

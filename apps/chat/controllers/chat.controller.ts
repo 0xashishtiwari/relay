@@ -45,11 +45,23 @@ export const getConversations = async (req: Request, res: Response) => {
 export const updateConversation = async (req: Request, res: Response) => {
     try {
         const { conversationId, title } = req.body;
-        if (!conversationId) {
-            return res.status(400).json({ error: "conversationId is required" });
+        const normalizedTitle = typeof title === "string"
+            ? title.trim().replace(/\s+/g, " ")
+            : "";
+
+        if (!conversationId || !normalizedTitle) {
+            return res.status(400).json({ error: "conversationId and title are required" });
         }
 
-        const conversation = await Conversation.findByIdAndUpdate(conversationId, { title }, { new: true });
+        const shortTitle = normalizedTitle.length > 60
+            ? `${normalizedTitle.slice(0, 57)}...`
+            : normalizedTitle;
+
+        const conversation = await Conversation.findByIdAndUpdate(
+            conversationId,
+            { title: shortTitle },
+            { new: true },
+        );
         if (!conversation) {
             return res.status(404).json({ error: "Conversation not found" });
         }

@@ -77,7 +77,7 @@ const Page = () => {
 
       {/* ───────────────── Hero ───────────────── */}
       <section className="mx-auto max-w-7xl px-6 pb-24 pt-20 lg:px-8 lg:pb-32 lg:pt-28">
-        <div className="max-w-5xl">
+        <div className="max-w-5xl relay-fade-up">
           <div className="mb-8 flex items-center gap-3 text-sm text-muted-foreground">
             <span className="h-1.5 w-1.5 rounded-full bg-primary" />
             <span>Multi-agent workspace</span>

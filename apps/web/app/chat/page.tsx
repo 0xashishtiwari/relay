@@ -8,11 +8,10 @@ import ChatArea from "../../components/chat/chatArea";
 import Sidebar from "../../components/chat/sidebar";
 import { getCurrentUser } from "../../lib/auth";
 import { useUserStore } from "../../store/user.store";
-
-interface Conversation {
-  _id: string;
-  title: string;
-}
+import {
+  Conversation,
+  useConversationStore,
+} from "../../store/conversation.store";
 
 const ChatPage = () => {
   const router = useRouter();
@@ -26,6 +25,12 @@ const ChatPage = () => {
 
   const setUser = useUserStore((state) => state.setUser);
   const setUserLoading = useUserStore((state) => state.setLoading);
+  const addConversation = useConversationStore(
+    (state) => state.addConversation
+  );
+  const updateConversation = useConversationStore(
+    (state) => state.updateConversation
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -87,6 +92,16 @@ const ChatPage = () => {
     setIsMobileSidebarOpen(false);
   };
 
+  const handleConversationCreated = (conversation: Conversation) => {
+    addConversation(conversation);
+    setActiveConversation(conversation);
+  };
+
+  const handleConversationUpdated = (conversation: Conversation) => {
+    updateConversation(conversation);
+    setActiveConversation(conversation);
+  };
+
   const handleMobileSidebarOpen = () => {
     setIsMobileSidebarOpen(true);
   };
@@ -110,7 +125,7 @@ const ChatPage = () => {
       {/* ------------------------------------------------ */}
 
       {isDesktopSidebarOpen && (
-        <aside className="hidden h-full shrink-0 md:flex">
+        <aside className="relay-slide-in hidden h-full shrink-0 md:flex">
           <Sidebar
             activeConversationId={activeConversation?._id}
             onConversationSelect={handleConversationSelect}
@@ -150,6 +165,8 @@ const ChatPage = () => {
         <ChatArea
           conversationId={activeConversation?._id}
           conversationTitle={activeConversation?.title}
+          onConversationCreated={handleConversationCreated}
+          onConversationUpdated={handleConversationUpdated}
           isDesktopSidebarOpen={isDesktopSidebarOpen}
           onArtifactOpen={() => setIsArtifactOpen(true)}
           onSidebarOpen={handleMobileSidebarOpen}
@@ -161,7 +178,7 @@ const ChatPage = () => {
       {/* ------------------------------------------------ */}
 
       {isArtifactOpen && (
-        <aside className="hidden h-full shrink-0 lg:flex">
+        <aside className="relay-slide-in-right hidden h-full shrink-0 lg:flex">
           <Artifact
             isOpen={isArtifactOpen}
             onClose={() => setIsArtifactOpen(false)}
