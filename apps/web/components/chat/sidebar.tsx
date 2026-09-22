@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -282,7 +283,6 @@ const Sidebar = ({
 
       <header className="shrink-0 px-4 pt-5">
         <div className="flex items-center justify-between">
-
           {/* Brand */}
 
           <div className="flex items-center gap-3">
@@ -300,8 +300,8 @@ const Sidebar = ({
             </div>
 
             <div>
-              <Link href="/" className="text-[16px] font-semibold tracking-[-0.025em] text-sidebar-foreground">
-              <p
+              <Link
+                href="/"
                 className="
                   text-[16px]
                   font-semibold
@@ -310,9 +310,16 @@ const Sidebar = ({
                 "
               >
                 Relay
-              </p>
               </Link>
-              <p className="mt-1 text-[11px] tracking-wide text-muted-foreground">
+
+              <p
+                className="
+                  mt-1
+                  text-[11px]
+                  tracking-wide
+                  text-muted-foreground
+                "
+              >
                 AI workspace
               </p>
             </div>
@@ -601,7 +608,6 @@ const Sidebar = ({
             ))}
           </div>
         ) : filteredConversations.length === 0 ? (
-
           /* Empty */
 
           <div
@@ -679,9 +685,7 @@ const Sidebar = ({
               </button>
             )}
           </div>
-
         ) : (
-
           /* Conversation list */
 
           <div className="space-y-1">
@@ -742,13 +746,20 @@ const Sidebar = ({
                           conversation
                         )
                       }
-                      className="min-w-0 flex-1 px-4 py-3.5 text-left"
+                      className="
+                        min-w-0
+                        flex-1
+                        px-4
+                        py-3.5
+                        text-left
+                      "
                     >
                       <div className="flex items-start gap-3">
                         <span
                           className={`
                             mt-2
-                            h-2 w-2
+                            h-2
+                            w-2
                             shrink-0
                             rounded-full
                             ${
@@ -872,9 +883,11 @@ const Sidebar = ({
                         className="
                           mr-2
                           hidden
-                          h-8 w-8
+                          h-8
+                          w-8
                           self-center
-                          items-center justify-center
+                          items-center
+                          justify-center
                           rounded-lg
                           text-muted-foreground
                           transition-colors
@@ -912,16 +925,84 @@ const Sidebar = ({
       ====================================================== */}
 
       <footer className="shrink-0 border-t border-sidebar-border p-3">
-        <ThemeToggle />
+
+        {/* Appearance */}
+
+        <div
+          className="
+            mb-1
+            flex
+            items-center
+            justify-between
+            rounded-xl
+            px-3
+            py-2.5
+          "
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="
+                flex
+                h-8
+                w-8
+                items-center
+                justify-center
+                rounded-lg
+                bg-secondary
+                text-muted-foreground
+              "
+            >
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2" />
+                <path d="M12 20v2" />
+                <path d="m4.93 4.93 1.41 1.41" />
+                <path d="m17.66 17.66 1.41 1.41" />
+                <path d="M2 12h2" />
+                <path d="M20 12h2" />
+                <path d="m6.34 17.66-1.41 1.41" />
+                <path d="m19.07 4.93-1.41 1.41" />
+              </svg>
+            </div>
+
+            <div className="min-w-0">
+              <p className="text-[12px] font-medium text-foreground">
+                Appearance
+              </p>
+
+              <p className="text-[10px] text-muted-foreground">
+                Light or dark theme
+              </p>
+            </div>
+          </div>
+
+          <div className="shrink-0">
+            <ThemeToggle />
+          </div>
+        </div>
+
+        {/* User */}
 
         <button
           type="button"
           className="
             group
-            flex w-full
-            items-center gap-3
+            flex
+            w-full
+            items-center
+            gap-3
             rounded-xl
-            px-3 py-2.5
+            px-3
+            py-2.5
             transition-colors
             hover:bg-secondary
           "
@@ -931,25 +1012,31 @@ const Sidebar = ({
               src={user.avatar}
               alt=""
               className="
-                h-9 w-9
+                h-9
+                w-9
                 shrink-0
                 rounded-full
                 object-cover
-                ring-1 ring-border
+                ring-1
+                ring-border
               "
             />
           ) : (
             <span
               className="
-                flex h-9 w-9
+                flex
+                h-9
+                w-9
                 shrink-0
-                items-center justify-center
+                items-center
+                justify-center
                 rounded-full
                 bg-secondary
                 text-[13px]
                 font-medium
                 text-foreground
-                ring-1 ring-border
+                ring-1
+                ring-border
               "
             >
               {user?.name?.charAt(0).toUpperCase() ||
@@ -986,16 +1073,21 @@ const Sidebar = ({
           </svg>
         </button>
 
+        {/* Sign out */}
+
         <button
           type="button"
           onClick={handleLogout}
           disabled={isLoggingOut}
           className="
             mt-1
-            flex w-full
-            items-center gap-2.5
+            flex
+            w-full
+            items-center
+            gap-2.5
             rounded-xl
-            px-3 py-2.5
+            px-3
+            py-2.5
             text-left
             text-[11px]
             text-muted-foreground
@@ -1007,7 +1099,17 @@ const Sidebar = ({
           "
         >
           {isLoggingOut ? (
-            <span className="h-3.5 w-3.5 animate-spin rounded-full border border-muted-foreground/30 border-t-muted-foreground" />
+            <span
+              className="
+                h-3.5
+                w-3.5
+                animate-spin
+                rounded-full
+                border
+                border-muted-foreground/30
+                border-t-muted-foreground
+              "
+            />
           ) : (
             <svg
               width="15"

@@ -98,7 +98,7 @@ export const deleteConversation = async (req: Request, res: Response) => {
 export const saveMessage = async (req: Request, res: Response) => {
     try {
 
-        const { conversationId, role, content } = req.body;
+        const { conversationId, role, content , images} = req.body;
 
         if (!conversationId || !role || !content) {
             return res.status(400).json({ error: "conversationId, role and content are required" });
@@ -106,7 +106,8 @@ export const saveMessage = async (req: Request, res: Response) => {
         const message = await Message.create({
             conversationId,
             role,
-            content
+            content,
+            images
         })
 
         await Conversation.findByIdAndUpdate(conversationId, {

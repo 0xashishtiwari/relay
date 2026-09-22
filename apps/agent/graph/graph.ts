@@ -27,7 +27,6 @@ const workflow = new StateGraph(agentState)
     return END;
   }, ["chat", "search", "coding", "pdf", "ppt", "imageGen"])
   .addEdge("chat", END)
-  .addEdge("search", END)
   .addEdge("coding", END)
   .addEdge("pdf", END)
   .addEdge("ppt", END)

@@ -6,8 +6,18 @@ export interface Message {
     conversationId: string;
     role: "user" | "assistant" | "system";
     content: string;
+    images?: string[];
     createdAt: string;
 }
+
+export type AgentName =
+    | "auto"
+    | "chat"
+    | "search"
+    | "ppt"
+    | "pdf"
+    | "coding"
+    | "imageGen";
 
 export const createConversation = async (): Promise<Conversation> => {
     const { data } = await api.post<Conversation>("/chat/conversation");
@@ -26,12 +36,20 @@ export const getMessages = async (conversationId: string): Promise<Message[]> =>
     return data;
 };
 
-export const sendMessage = async (conversationId: string, prompt: string) => {
-    const { data } = await api.post<{ response: string }>("/agent/chat", {
+export const sendMessage = async (
+    conversationId: string,
+    prompt: string,
+    agent: AgentName = "auto",
+) => {
+    const { data } = await api.post<{ response: string; images?: string[] }>("/agent/chat", {
         conversationId,
         prompt,
+        agent,
     });
-    return data.response;
+    return {
+        response: data.response,
+        images: data.images ?? [],
+    };
 };
 
 export const saveMessage = async (

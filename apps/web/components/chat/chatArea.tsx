@@ -4,6 +4,7 @@
 import {
   FormEvent,
   KeyboardEvent,
+  ReactNode,
   useEffect,
   useRef,
   useState,
@@ -15,6 +16,7 @@ import {
   sendMessage as sendAgentMessage,
   updateConversation as updateConversationApi,
 } from "../../lib/conversation";
+import type { AgentName } from "../../lib/conversation";
 import type { Conversation } from "../../store/conversation.store";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -33,7 +35,87 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  images?: string[];
 }
+
+const SearchImage = ({
+  src,
+  index,
+}: {
+  src: string;
+  index: number;
+}) => {
+  const [hasError, setHasError] = useState(false);
+
+  if (hasError) {
+    return null;
+  }
+
+  return (
+    <a
+      href={src}
+      target="_blank"
+      rel="noreferrer"
+      className="block overflow-hidden rounded-xl border border-border bg-card transition-opacity hover:opacity-85"
+    >
+      <img
+        src={src}
+        alt={`Search result ${index + 1}`}
+        loading="lazy"
+        onError={() => setHasError(true)}
+        className="aspect-video w-full object-cover"
+      />
+    </a>
+  );
+};
+
+const CodeBlock = ({
+  inline,
+  className,
+  children,
+}: {
+  inline?: boolean;
+  className?: string;
+  children?: ReactNode;
+}) => {
+  const [copied, setCopied] = useState(false);
+  const code = String(children ?? "").replace(/\n$/, "");
+  const language = className?.match(/language-(\w+)/)?.[1] ?? "code";
+
+  if (inline) {
+    return <code className={className}>{children}</code>;
+  }
+
+  const copyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch (error) {
+      console.error("Failed to copy code:", error);
+    }
+  };
+
+  return (
+    <div className="relay-code-card">
+      <div className="relay-code-toolbar">
+        <span className="relay-code-language">{language}</span>
+        <button
+          type="button"
+          onClick={copyCode}
+          aria-label="Copy code"
+          title="Copy code"
+          className="relay-code-copy"
+        >
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      <pre>
+        <code className={className}>{code}</code>
+      </pre>
+    </div>
+  );
+};
 
 const ChatArea = ({
   conversationId,
@@ -49,6 +131,7 @@ const ChatArea = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [sendError, setSendError] = useState("");
+  const [selectedAgent, setSelectedAgent] = useState<AgentName>("auto");
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -81,6 +164,7 @@ const ChatArea = ({
             id: item._id,
             role: item.role as Message["role"],
             content: item.content,
+            images: item.images ?? [],
           }));
 
         setMessages(formattedMessages);
@@ -160,15 +244,17 @@ const ChatArea = ({
       setMessages((current) => [...current, userMessage]);
       setMessage("");
 
-      const response = await sendAgentMessage(
+      const agentResponse = await sendAgentMessage(
         activeConversationId,
-        content
+        content,
+        selectedAgent,
       );
 
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: response,
+        content: agentResponse.response,
+        images: agentResponse.images,
       };
 
       setMessages((current) => [
@@ -900,9 +986,29 @@ const ChatArea = ({
                             <div className="relay-markdown">
                               <ReactMarkdown
                                 remarkPlugins={[remarkGfm]}
+                                components={{
+                                  code: CodeBlock,
+                                  table: ({ children }) => (
+                                    <div className="relay-table-wrap">
+                                      <table>{children}</table>
+                                    </div>
+                                  ),
+                                }}
                               >
                                 {item.content}
                               </ReactMarkdown>
+
+                              {item.images && item.images.length > 0 && (
+                                <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                  {item.images.map((image, imageIndex) => (
+                                    <SearchImage
+                                      key={`${image}-${imageIndex}`}
+                                      src={image}
+                                      index={imageIndex}
+                                    />
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1118,38 +1224,38 @@ const ChatArea = ({
 
                 {/* Agent mode */}
 
-                <button
-                  type="button"
-                  disabled={isGenerating}
-                  className="
-                    hidden
-                    h-9
-                    items-center gap-2
-                    rounded-xl
-                    px-3
-                    text-[11px]
-                    font-medium
-                    text-muted-foreground
-                    transition-colors
-                    hover:bg-secondary
-                    hover:text-foreground
-                    disabled:opacity-30
-                    sm:flex
-                  "
-                >
-                  Auto
-
-                  <svg
-                    width="11"
-                    height="11"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
+                <label className="hidden sm:flex">
+                  <span className="sr-only">Agent mode</span>
+                  <select
+                    value={selectedAgent}
+                    onChange={(event) =>
+                      setSelectedAgent(event.target.value as AgentName)
+                    }
+                    disabled={isGenerating}
+                    className="
+                      h-9
+                      rounded-xl
+                      bg-transparent
+                      px-3
+                      text-[11px]
+                      font-medium
+                      text-muted-foreground
+                      outline-none
+                      transition-colors
+                      hover:bg-secondary
+                      hover:text-foreground
+                      disabled:opacity-30
+                    "
                   >
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                </button>
+                    <option value="auto">Auto</option>
+                    <option value="chat">Chat</option>
+                    <option value="search">Search</option>
+                    <option value="ppt">PPT</option>
+                    <option value="pdf">PDF</option>
+                    <option value="coding">Coding</option>
+                    <option value="imageGen">Image generation</option>
+                  </select>
+                </label>
               </div>
 
               {/* Send */}

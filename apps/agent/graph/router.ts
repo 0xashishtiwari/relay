@@ -3,6 +3,7 @@ import { agentState } from "./state";
 import { routerSystemPrompt } from "../prompts/router.prompt";
 
 type AgentName =
+  | "auto"
   | "chat"
   | "search"
   | "coding"
@@ -11,6 +12,7 @@ type AgentName =
   | "imageGen";
 
 const validAgents: AgentName[] = [
+  "auto",
   "chat",
   "search",
   "coding",
@@ -22,6 +24,10 @@ const validAgents: AgentName[] = [
 export const router = async (
   state: typeof agentState.State
 ) => {
+  if (state.agent && state.agent !== "auto" && validAgents.includes(state.agent as AgentName)) {
+    return state;
+  }
+
   const llm = await getModel("router");
 
   const response = await llm.invoke([
