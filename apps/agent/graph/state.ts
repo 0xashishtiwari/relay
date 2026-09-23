@@ -8,4 +8,5 @@ export const agentState = Annotation.Root({
     searchResults: Annotation<any[]>(),
     searchAnswer: Annotation<string>(),
     images: Annotation<any[]>(),
+    artifacts: Annotation<any[]>(),
 });

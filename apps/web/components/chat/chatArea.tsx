@@ -1,9 +1,9 @@
-
 "use client";
 
 import {
   FormEvent,
   KeyboardEvent,
+  ReactElement,
   ReactNode,
   useEffect,
   useRef,
@@ -16,19 +16,39 @@ import {
   sendMessage as sendAgentMessage,
   updateConversation as updateConversationApi,
 } from "../../lib/conversation";
+
 import type { AgentName } from "../../lib/conversation";
+import type { Artifact as ConversationArtifact } from "../../lib/conversation";
 import type { Conversation } from "../../store/conversation.store";
+
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 interface ChatAreaProps {
   conversationId?: string;
   conversationTitle?: string;
-  onConversationCreated?: (conversation: Conversation) => void;
-  onConversationUpdated?: (conversation: Conversation) => void;
+  onConversationCreated?: (
+    conversation: Conversation
+  ) => void;
+  onConversationUpdated?: (
+    conversation: Conversation
+  ) => void;
   isDesktopSidebarOpen?: boolean;
   onArtifactOpen?: () => void;
+  onArtifactsChange?: (artifacts: Artifact[]) => void;
   onSidebarOpen?: () => void;
+}
+
+interface ArtifactFile {
+  name: string;
+  content: string;
+}
+
+interface Artifact {
+  id: string;
+  title?: string;
+  type: string;
+  files: ArtifactFile[];
 }
 
 interface Message {
@@ -36,7 +56,12 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   images?: string[];
+  artifacts?: Artifact[];
 }
+
+/* =========================================================
+   SEARCH IMAGE
+========================================================= */
 
 const SearchImage = ({
   src,
@@ -45,7 +70,8 @@ const SearchImage = ({
   src: string;
   index: number;
 }) => {
-  const [hasError, setHasError] = useState(false);
+  const [hasError, setHasError] =
+    useState(false);
 
   if (hasError) {
     return null;
@@ -56,7 +82,16 @@ const SearchImage = ({
       href={src}
       target="_blank"
       rel="noreferrer"
-      className="block overflow-hidden rounded-xl border border-border bg-card transition-opacity hover:opacity-85"
+      className="
+        block
+        overflow-hidden
+        rounded-xl
+        border
+        border-border
+        bg-card
+        transition-opacity
+        hover:opacity-85
+      "
     >
       <img
         src={src}
@@ -69,37 +104,81 @@ const SearchImage = ({
   );
 };
 
-const CodeBlock = ({
-  inline,
+/* =========================================================
+   INLINE CODE
+========================================================= */
+
+const InlineCode = ({
   className,
   children,
 }: {
-  inline?: boolean;
   className?: string;
   children?: ReactNode;
 }) => {
-  const [copied, setCopied] = useState(false);
-  const code = String(children ?? "").replace(/\n$/, "");
-  const language = className?.match(/language-(\w+)/)?.[1] ?? "code";
+  return (
+    <code className={className}>
+      {children}
+    </code>
+  );
+};
 
-  if (inline) {
-    return <code className={className}>{children}</code>;
-  }
+/* =========================================================
+   CODE BLOCK
+========================================================= */
+
+const CodePre = ({
+  children,
+}: {
+  children?: ReactNode;
+}) => {
+  const [copied, setCopied] =
+    useState(false);
+
+  const codeElement =
+    children as ReactElement<{
+      children?: ReactNode;
+      className?: string;
+    }> | null;
+
+  const rawCode =
+    codeElement?.props?.children;
+
+  const code = String(
+    rawCode ?? ""
+  ).replace(/\n$/, "");
+
+  const language =
+    codeElement?.props?.className?.match(
+      /language-(\w+)/
+    )?.[1] ?? "code";
 
   const copyCode = async () => {
     try {
-      await navigator.clipboard.writeText(code);
+      await navigator.clipboard.writeText(
+        code
+      );
+
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
+
+      window.setTimeout(
+        () => setCopied(false),
+        1500
+      );
     } catch (error) {
-      console.error("Failed to copy code:", error);
+      console.error(
+        "Failed to copy code:",
+        error
+      );
     }
   };
 
   return (
     <div className="relay-code-card">
       <div className="relay-code-toolbar">
-        <span className="relay-code-language">{language}</span>
+        <span className="relay-code-language">
+          {language}
+        </span>
+
         <button
           type="button"
           onClick={copyCode}
@@ -110,12 +189,112 @@ const CodeBlock = ({
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
+
       <pre>
-        <code className={className}>{code}</code>
+        {children}
       </pre>
     </div>
   );
 };
+
+/* =========================================================
+   ARTIFACT CARD
+========================================================= */
+
+const ArtifactCard = ({
+  artifact,
+  onOpen,
+}: {
+  artifact: Artifact;
+  onOpen: () => void;
+}) => {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="
+        group
+        flex
+        w-full
+        items-center
+        justify-between
+        rounded-2xl
+        border
+        border-border
+        bg-card
+        p-4
+        text-left
+        shadow-sm
+        transition-all
+        duration-200
+        hover:-translate-y-0.5
+        hover:border-primary/30
+        hover:bg-accent
+      "
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <div
+          className="
+            flex
+            h-10
+            w-10
+            shrink-0
+            items-center
+            justify-center
+            rounded-xl
+            bg-primary/10
+            text-primary
+          "
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="m16 18 6-6-6-6" />
+            <path d="m8 6-6 6 6 6" />
+          </svg>
+        </div>
+
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-foreground">
+            Generated project
+          </p>
+
+          <p className="mt-1 text-xs text-muted-foreground">
+            {artifact.files.length}{" "}
+            {artifact.files.length === 1
+              ? "file"
+              : "files"}
+          </p>
+        </div>
+      </div>
+
+      <span
+        className="
+          ml-4
+          shrink-0
+          text-xs
+          font-medium
+          text-muted-foreground
+          transition-colors
+          group-hover:text-primary
+        "
+      >
+        Open →
+      </span>
+    </button>
+  );
+};
+
+/* =========================================================
+   CHAT AREA
+========================================================= */
 
 const ChatArea = ({
   conversationId,
@@ -123,22 +302,42 @@ const ChatArea = ({
   onConversationCreated,
   onConversationUpdated,
   onArtifactOpen,
+  onArtifactsChange,
   onSidebarOpen,
   isDesktopSidebarOpen = true,
 }: ChatAreaProps) => {
-  const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
-  const [sendError, setSendError] = useState("");
-  const [selectedAgent, setSelectedAgent] = useState<AgentName>("auto");
+  const [message, setMessage] =
+    useState("");
 
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [messages, setMessages] =
+    useState<Message[]>([]);
 
-  /* -------------------------------------------------------
+  const [artifacts, setArtifacts] =
+    useState<Artifact[]>([]);
+
+  const [isGenerating, setIsGenerating] =
+    useState(false);
+
+  const [
+    isLoadingMessages,
+    setIsLoadingMessages,
+  ] = useState(false);
+
+  const [sendError, setSendError] =
+    useState("");
+
+  const [selectedAgent, setSelectedAgent] =
+    useState<AgentName>("auto");
+
+  const textareaRef =
+    useRef<HTMLTextAreaElement>(null);
+
+  const messagesEndRef =
+    useRef<HTMLDivElement>(null);
+
+  /* =======================================================
      LOAD MESSAGES
-  ------------------------------------------------------- */
+  ======================================================= */
 
   useEffect(() => {
     let cancelled = false;
@@ -146,6 +345,8 @@ const ChatArea = ({
     const loadMessages = async () => {
       if (!conversationId) {
         setMessages([]);
+        setArtifacts([]);
+        onArtifactsChange?.([]);
         setSendError("");
         return;
       }
@@ -154,25 +355,43 @@ const ChatArea = ({
         setIsLoadingMessages(true);
         setSendError("");
 
-        const data = await getMessages(conversationId);
+        const data =
+          await getMessages(conversationId);
 
         if (cancelled) return;
 
-        const formattedMessages: Message[] = data
-          .filter((item) => item.role !== "system")
-          .map((item) => ({
-            id: item._id,
-            role: item.role as Message["role"],
-            content: item.content,
-            images: item.images ?? [],
-          }));
+        const formattedMessages: Message[] =
+          data
+            .filter(
+              (item) => item.role !== "system"
+            )
+            .map((item) => ({
+              id: item._id,
+              role: item.role as Message["role"],
+              content: item.content,
+              images: item.images ?? [],
+              artifacts: item.artifacts ?? [],
+            }));
 
         setMessages(formattedMessages);
+        const loadedArtifacts = formattedMessages.flatMap(
+          (item) => item.artifacts ?? []
+        );
+        setArtifacts(loadedArtifacts);
+        onArtifactsChange?.(loadedArtifacts);
+        if (loadedArtifacts.length > 0) {
+          onArtifactOpen?.();
+        }
       } catch (error) {
-        console.error("Failed to load messages:", error);
+        console.error(
+          "Failed to load messages:",
+          error
+        );
 
         if (!cancelled) {
-          setSendError("Unable to load this conversation.");
+          setSendError(
+            "Unable to load this conversation."
+          );
         }
       } finally {
         if (!cancelled) {
@@ -188,9 +407,9 @@ const ChatArea = ({
     };
   }, [conversationId]);
 
-  /* -------------------------------------------------------
+  /* =======================================================
      AUTO SCROLL
-  ------------------------------------------------------- */
+  ======================================================= */
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({
@@ -198,9 +417,20 @@ const ChatArea = ({
     });
   }, [messages, isGenerating]);
 
-  /* -------------------------------------------------------
+  /* =======================================================
+     OPEN ARTIFACT
+  ======================================================= */
+
+  const openArtifact = (
+    artifact: Artifact
+  ) => {
+    setArtifacts([artifact]);
+    onArtifactOpen?.();
+  };
+
+  /* =======================================================
      SEND MESSAGE
-  ------------------------------------------------------- */
+  ======================================================= */
 
   const sendMessage = async (
     event?: FormEvent<HTMLFormElement>
@@ -216,23 +446,32 @@ const ChatArea = ({
     setSendError("");
     setIsGenerating(true);
 
-    let conversationToSync: Conversation | undefined;
+    let conversationToSync:
+      | Conversation
+      | undefined;
 
     try {
-      let activeConversationId = conversationId;
+      let activeConversationId =
+        conversationId;
 
       if (!activeConversationId) {
-        const createdConversation = await createConversationApi();
-        activeConversationId = createdConversation._id;
-        conversationToSync = await updateConversationApi(
-          activeConversationId,
-          content
-        );
+        const createdConversation =
+          await createConversationApi();
+
+        activeConversationId =
+          createdConversation._id;
+
+        conversationToSync =
+          await updateConversationApi(
+            activeConversationId,
+            content
+          );
       } else if (messages.length === 0) {
-        conversationToSync = await updateConversationApi(
-          activeConversationId,
-          content
-        );
+        conversationToSync =
+          await updateConversationApi(
+            activeConversationId,
+            content
+          );
       }
 
       const userMessage: Message = {
@@ -241,20 +480,57 @@ const ChatArea = ({
         content,
       };
 
-      setMessages((current) => [...current, userMessage]);
+      setMessages((current) => [
+        ...current,
+        userMessage,
+      ]);
+
       setMessage("");
 
-      const agentResponse = await sendAgentMessage(
-        activeConversationId,
-        content,
-        selectedAgent,
-      );
+      const agentResponse =
+        await sendAgentMessage(
+          activeConversationId,
+          content,
+          selectedAgent
+        );
+
+      /* ---------------------------------------------------
+         NORMALIZE RESPONSE
+      --------------------------------------------------- */
+
+      const responseText =
+        typeof agentResponse?.response ===
+        "string"
+          ? agentResponse.response
+          : "";
+
+      const responseImages =
+        Array.isArray(
+          agentResponse?.images
+        )
+          ? agentResponse.images
+          : [];
+
+      const responseArtifacts: Artifact[] =
+        Array.isArray(
+          agentResponse?.artifacts
+        )
+          ? agentResponse.artifacts
+          : [];
+
+      /* ---------------------------------------------------
+         ASSISTANT MESSAGE
+      --------------------------------------------------- */
 
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: agentResponse.response,
-        images: agentResponse.images,
+        content: responseText,
+        images: responseImages,
+        artifacts:
+          responseArtifacts.length > 0
+            ? responseArtifacts
+            : undefined,
       };
 
       setMessages((current) => [
@@ -262,23 +538,39 @@ const ChatArea = ({
         assistantMessage,
       ]);
 
-      if (conversationToSync) {
-        if (conversationId) {
-          onConversationUpdated?.(conversationToSync);
-        } else {
-          onConversationCreated?.(conversationToSync);
+      /* ---------------------------------------------------
+         STORE ARTIFACTS
+      --------------------------------------------------- */
+
+      if (responseArtifacts.length > 0) {
+        const nextArtifacts = [...artifacts, ...responseArtifacts];
+        setArtifacts(nextArtifacts);
+        onArtifactsChange?.(nextArtifacts);
+        if (selectedAgent === "coding") {
+          onArtifactOpen?.();
         }
       }
-    } catch (error) {
-      console.error("Failed to send message:", error);
+
+      /* ---------------------------------------------------
+         CONVERSATION SYNC
+      --------------------------------------------------- */
 
       if (conversationToSync) {
         if (conversationId) {
-          onConversationUpdated?.(conversationToSync);
+          onConversationUpdated?.(
+            conversationToSync
+          );
         } else {
-          onConversationCreated?.(conversationToSync);
+          onConversationCreated?.(
+            conversationToSync
+          );
         }
       }
+    } catch (error) {
+      console.error(
+        "Failed to send message:",
+        error
+      );
 
       setSendError(
         "Relay couldn't complete that request. Try again."
@@ -289,27 +581,33 @@ const ChatArea = ({
     }
   };
 
-  /* -------------------------------------------------------
+  /* =======================================================
      KEYBOARD
-  ------------------------------------------------------- */
+  ======================================================= */
 
   const handleKeyDown = (
     event: KeyboardEvent<HTMLTextAreaElement>
   ) => {
-    if (event.key === "Enter" && !event.shiftKey) {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey
+    ) {
       event.preventDefault();
       sendMessage();
     }
   };
 
-  /* -------------------------------------------------------
+  /* =======================================================
      TEXTAREA
-  ------------------------------------------------------- */
+  ======================================================= */
 
-  const handleMessageChange = (value: string) => {
+  const handleMessageChange = (
+    value: string
+  ) => {
     setMessage(value);
 
-    const textarea = textareaRef.current;
+    const textarea =
+      textareaRef.current;
 
     if (!textarea) return;
 
@@ -321,18 +619,18 @@ const ChatArea = ({
     )}px`;
   };
 
-  /* -------------------------------------------------------
+  /* =======================================================
      STATES
-  ------------------------------------------------------- */
+  ======================================================= */
 
   const showIntro =
     Boolean(conversationId) &&
     !isLoadingMessages &&
     messages.length === 0;
 
-  /* -------------------------------------------------------
+  /* =======================================================
      SUGGESTIONS
-  ------------------------------------------------------- */
+  ======================================================= */
 
   const suggestions = [
     {
@@ -357,9 +655,9 @@ const ChatArea = ({
     },
   ];
 
-  /* -------------------------------------------------------
+  /* =======================================================
      RENDER
-  ------------------------------------------------------- */
+  ======================================================= */
 
   return (
     <main className="relay-fade-up flex min-h-0 min-w-0 flex-1 flex-col bg-background text-foreground">
@@ -370,10 +668,13 @@ const ChatArea = ({
 
       <header
         className={`
-          flex h-[72px]
+          flex
+          h-[72px]
           shrink-0
-          items-center justify-between
-          border-b border-border
+          items-center
+          justify-between
+          border-b
+          border-border
           px-5
           sm:px-8
           ${!isDesktopSidebarOpen ? "md:pl-16" : ""}
@@ -381,16 +682,17 @@ const ChatArea = ({
       >
         <div className="flex min-w-0 items-center gap-3">
 
-          {/* Mobile sidebar */}
-
           <button
             type="button"
             onClick={onSidebarOpen}
             aria-label="Open sidebar"
             className="
-              flex h-10 w-10
+              flex
+              h-10
+              w-10
               shrink-0
-              items-center justify-center
+              items-center
+              justify-center
               rounded-xl
               text-muted-foreground
               transition-colors
@@ -414,8 +716,6 @@ const ChatArea = ({
             </svg>
           </button>
 
-          {/* Conversation */}
-
           <div className="min-w-0">
             <div className="flex items-center gap-3">
               <h1
@@ -436,9 +736,11 @@ const ChatArea = ({
                   className="
                     hidden
                     rounded-full
-                    border border-border
+                    border
+                    border-border
                     bg-secondary
-                    px-2.5 py-1
+                    px-2.5
+                    py-1
                     text-[10px]
                     font-medium
                     uppercase
@@ -475,17 +777,24 @@ const ChatArea = ({
           </div>
         </div>
 
-        {/* Header actions */}
-
         <div className="flex items-center gap-2">
+
           <button
             type="button"
-            onClick={onArtifactOpen}
+            onClick={() => {
+              if (artifacts.length > 0) {
+                onArtifactOpen?.();
+              }
+            }}
+            disabled={artifacts.length === 0}
             className="
-              hidden h-10
-              items-center gap-2.5
+              hidden
+              h-10
+              items-center
+              gap-2.5
               rounded-xl
-              border border-border
+              border
+              border-border
               bg-background
               px-4
               text-[12px]
@@ -494,6 +803,8 @@ const ChatArea = ({
               transition-colors
               hover:bg-secondary
               hover:text-foreground
+              disabled:cursor-not-allowed
+              disabled:opacity-40
               sm:flex
             "
           >
@@ -519,8 +830,11 @@ const ChatArea = ({
             aria-label="Conversation options"
             title="More"
             className="
-              flex h-10 w-10
-              items-center justify-center
+              flex
+              h-10
+              w-10
+              items-center
+              justify-center
               rounded-xl
               text-muted-foreground
               transition-colors
@@ -534,9 +848,21 @@ const ChatArea = ({
               viewBox="0 0 24 24"
               fill="currentColor"
             >
-              <circle cx="5" cy="12" r="1.3" />
-              <circle cx="12" cy="12" r="1.3" />
-              <circle cx="19" cy="12" r="1.3" />
+              <circle
+                cx="5"
+                cy="12"
+                r="1.3"
+              />
+              <circle
+                cx="12"
+                cy="12"
+                r="1.3"
+              />
+              <circle
+                cx="19"
+                cy="12"
+                r="1.3"
+              />
             </svg>
           </button>
         </div>
@@ -562,15 +888,14 @@ const ChatArea = ({
             w-full
             max-w-4xl
             flex-col
-            px-5 py-10
+            px-5
+            py-10
             sm:px-8
             lg:px-10
           "
         >
 
-          {/* =================================================
-              NO CONVERSATION
-          ================================================== */}
+          {/* NO CONVERSATION */}
 
           {!conversationId && (
             <div
@@ -586,8 +911,11 @@ const ChatArea = ({
             >
               <div
                 className="
-                  flex h-14 w-14
-                  items-center justify-center
+                  flex
+                  h-14
+                  w-14
+                  items-center
+                  justify-center
                   rounded-2xl
                   bg-primary
                   text-lg
@@ -598,7 +926,6 @@ const ChatArea = ({
                 R
               </div>
 
-              
               <p
                 className="
                   mt-7
@@ -611,7 +938,7 @@ const ChatArea = ({
               >
                 Relay
               </p>
-             
+
               <h2
                 className="
                   mt-4
@@ -637,8 +964,9 @@ const ChatArea = ({
                   sm:text-[16px]
                 "
               >
-                Give Relay a task and let it coordinate the right
-                AI agents for your work.
+                Give Relay a task and let it
+                coordinate the right AI agents
+                for your work.
               </p>
             </div>
           )}
@@ -659,8 +987,11 @@ const ChatArea = ({
               <div className="max-w-3xl">
                 <div
                   className="
-                    flex h-11 w-11
-                    items-center justify-center
+                    flex
+                    h-11
+                    w-11
+                    items-center
+                    justify-center
                     rounded-xl
                     bg-primary
                     text-sm
@@ -710,13 +1041,12 @@ const ChatArea = ({
                     sm:text-[17px]
                   "
                 >
-                  Give Relay a task. It can reason about the
-                  request, coordinate specialist agents, and
-                  turn the result into something useful.
+                  Give Relay a task. It can reason
+                  about the request, coordinate
+                  specialist agents, and turn the
+                  result into something useful.
                 </p>
               </div>
-
-              {/* Suggestions */}
 
               <div
                 className="
@@ -728,94 +1058,101 @@ const ChatArea = ({
                   sm:grid-cols-2
                 "
               >
-                {suggestions.map((suggestion) => (
-                  <button
-                    key={suggestion.text}
-                    type="button"
-                    onClick={() =>
-                      handleMessageChange(
-                        suggestion.text
-                      )
-                    }
-                    className="
-                      group
-                      rounded-2xl
-                      border border-border
-                      bg-card
-                      p-5
-                      text-left
-                      shadow-sm
-                      transition-all
-                      duration-200
-                      hover:-translate-y-0.5
-                      hover:border-primary/30
-                      hover:bg-accent
-                    "
-                  >
-                    <div className="flex items-center justify-between">
-                      <span
-                        className="
-                          text-[10px]
-                          font-semibold
-                          uppercase
-                          tracking-[0.16em]
-                          text-muted-foreground
-                          transition-colors
-                          group-hover:text-primary
-                        "
-                      >
-                        {suggestion.label}
-                      </span>
-
-                      <div
-                        className="
-                          flex h-7 w-7
-                          items-center justify-center
-                          rounded-full
-                          border border-border
-                          text-muted-foreground
-                          transition-all
-                          group-hover:border-primary/30
-                          group-hover:text-primary
-                        "
-                      >
-                        <svg
-                          width="13"
-                          height="13"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.7"
+                {suggestions.map(
+                  (suggestion) => (
+                    <button
+                      key={suggestion.text}
+                      type="button"
+                      onClick={() =>
+                        handleMessageChange(
+                          suggestion.text
+                        )
+                      }
+                      className="
+                        group
+                        rounded-2xl
+                        border
+                        border-border
+                        bg-card
+                        p-5
+                        text-left
+                        shadow-sm
+                        transition-all
+                        duration-200
+                        hover:-translate-y-0.5
+                        hover:border-primary/30
+                        hover:bg-accent
+                      "
+                    >
+                      <div className="flex items-center justify-between">
+                        <span
+                          className="
+                            text-[10px]
+                            font-semibold
+                            uppercase
+                            tracking-[0.16em]
+                            text-muted-foreground
+                            transition-colors
+                            group-hover:text-primary
+                          "
                         >
-                          <path d="m9 18 6-6-6-6" />
-                        </svg>
+                          {suggestion.label}
+                        </span>
+
+                        <div
+                          className="
+                            flex
+                            h-7
+                            w-7
+                            items-center
+                            justify-center
+                            rounded-full
+                            border
+                            border-border
+                            text-muted-foreground
+                            transition-all
+                            group-hover:border-primary/30
+                            group-hover:text-primary
+                          "
+                        >
+                          <svg
+                            width="13"
+                            height="13"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.7"
+                          >
+                            <path d="m9 18 6-6-6-6" />
+                          </svg>
+                        </div>
                       </div>
-                    </div>
 
-                    <h3
-                      className="
-                        mt-5
-                        text-[15px]
-                        font-medium
-                        tracking-[-0.015em]
-                        text-foreground
-                      "
-                    >
-                      {suggestion.title}
-                    </h3>
+                      <h3
+                        className="
+                          mt-5
+                          text-[15px]
+                          font-medium
+                          tracking-[-0.015em]
+                          text-foreground
+                        "
+                      >
+                        {suggestion.title}
+                      </h3>
 
-                    <p
-                      className="
-                        mt-1.5
-                        text-[13px]
-                        leading-6
-                        text-muted-foreground
-                      "
-                    >
-                      {suggestion.text}
-                    </p>
-                  </button>
-                ))}
+                      <p
+                        className="
+                          mt-1.5
+                          text-[13px]
+                          leading-6
+                          text-muted-foreground
+                        "
+                      >
+                        {suggestion.text}
+                      </p>
+                    </button>
+                  )
+                )}
               </div>
             </div>
           )}
@@ -833,7 +1170,8 @@ const ChatArea = ({
                 >
                   <div
                     className="
-                      h-9 w-9
+                      h-9
+                      w-9
                       shrink-0
                       animate-pulse
                       rounded-xl
@@ -844,7 +1182,8 @@ const ChatArea = ({
                   <div className="max-w-2xl flex-1">
                     <div
                       className="
-                        h-3 w-16
+                        h-3
+                        w-16
                         animate-pulse
                         rounded
                         bg-muted
@@ -887,7 +1226,8 @@ const ChatArea = ({
                       key={item.id}
                       className={`
                         relay-message-in
-                        flex gap-4
+                        flex
+                        gap-4
                         ${
                           isUser
                             ? "justify-end"
@@ -899,9 +1239,12 @@ const ChatArea = ({
                         <div
                           className="
                             mt-1
-                            flex h-9 w-9
+                            flex
+                            h-9
+                            w-9
                             shrink-0
-                            items-center justify-center
+                            items-center
+                            justify-center
                             rounded-xl
                             bg-primary
                             text-[11px]
@@ -917,15 +1260,24 @@ const ChatArea = ({
                         className={`
                           max-w-[88%]
                           sm:max-w-[78%]
-                          ${isUser ? "flex flex-col items-end" : ""}
+                          ${
+                            isUser
+                              ? "flex flex-col items-end"
+                              : ""
+                          }
                         `}
                       >
                         <div
                           className={`
                             mb-2
                             flex
-                            items-center gap-2
-                            ${isUser ? "justify-end" : ""}
+                            items-center
+                            gap-2
+                            ${
+                              isUser
+                                ? "justify-end"
+                                : ""
+                            }
                           `}
                         >
                           <span
@@ -935,16 +1287,20 @@ const ChatArea = ({
                               text-muted-foreground
                             "
                           >
-                            {isUser ? "You" : "Relay"}
+                            {isUser
+                              ? "You"
+                              : "Relay"}
                           </span>
 
                           {!isUser && (
                             <span
                               className="
                                 rounded-full
-                                border border-border
+                                border
+                                border-border
                                 bg-secondary
-                                px-1.5 py-0.5
+                                px-1.5
+                                py-0.5
                                 text-[9px]
                                 uppercase
                                 tracking-wider
@@ -963,7 +1319,8 @@ const ChatArea = ({
                                 rounded-2xl
                                 rounded-br-md
                                 bg-primary
-                                px-5 py-3.5
+                                px-5
+                                py-3.5
                                 whitespace-pre-wrap
                                 break-words
                                 text-[15px]
@@ -984,31 +1341,99 @@ const ChatArea = ({
                             item.content
                           ) : (
                             <div className="relay-markdown">
-                              <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                components={{
-                                  code: CodeBlock,
-                                  table: ({ children }) => (
-                                    <div className="relay-table-wrap">
-                                      <table>{children}</table>
-                                    </div>
-                                  ),
-                                }}
-                              >
-                                {item.content}
-                              </ReactMarkdown>
 
-                              {item.images && item.images.length > 0 && (
-                                <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                  {item.images.map((image, imageIndex) => (
-                                    <SearchImage
-                                      key={`${image}-${imageIndex}`}
-                                      src={image}
-                                      index={imageIndex}
-                                    />
-                                  ))}
-                                </div>
+                              {/* MARKDOWN */}
+
+                              {item.content && (
+                                <ReactMarkdown
+                                  remarkPlugins={[
+                                    remarkGfm,
+                                  ]}
+                                  components={{
+                                    /*
+                                     * IMPORTANT:
+                                     *
+                                     * `code` only renders the
+                                     * actual <code> element.
+                                     *
+                                     * It must NOT return a <div>.
+                                     */
+                                    code: InlineCode,
+
+                                    /*
+                                     * Fenced code blocks arrive
+                                     * through <pre>.
+                                     *
+                                     * CodePre wraps the <pre>
+                                     * in our custom card.
+                                     */
+                                    pre: CodePre,
+
+                                    table: ({
+                                      children,
+                                    }) => (
+                                      <div className="relay-table-wrap">
+                                        <table>
+                                          {children}
+                                        </table>
+                                      </div>
+                                    ),
+                                  }}
+                                >
+                                  {item.content}
+                                </ReactMarkdown>
                               )}
+
+                              {/* IMAGES */}
+
+                              {item.images &&
+                                item.images.length >
+                                  0 && (
+                                  <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    {item.images.map(
+                                      (
+                                        image,
+                                        imageIndex
+                                      ) => (
+                                        <SearchImage
+                                          key={`${image}-${imageIndex}`}
+                                          src={image}
+                                          index={
+                                            imageIndex
+                                          }
+                                        />
+                                      )
+                                    )}
+                                  </div>
+                                )}
+
+                              {/* ARTIFACTS */}
+
+                              {item.artifacts &&
+                                item.artifacts.length >
+                                  0 && (
+                                  <div className="mt-5 space-y-3">
+                                    {item.artifacts.map(
+                                      (
+                                        artifact
+                                      ) => (
+                                        <ArtifactCard
+                                          key={
+                                            artifact.id
+                                          }
+                                          artifact={
+                                            artifact
+                                          }
+                                          onOpen={() =>
+                                            openArtifact(
+                                              artifact
+                                            )
+                                          }
+                                        />
+                                      )
+                                    )}
+                                  </div>
+                                )}
                             </div>
                           )}
                         </div>
@@ -1017,16 +1442,21 @@ const ChatArea = ({
                   );
                 })}
 
-                {/* Generating */}
+                {/* =================================================
+                    GENERATING
+                ================================================== */}
 
                 {isGenerating && (
                   <div className="flex gap-4">
                     <div
                       className="
                         mt-1
-                        flex h-9 w-9
+                        flex
+                        h-9
+                        w-9
                         shrink-0
-                        items-center justify-center
+                        items-center
+                        justify-center
                         rounded-xl
                         bg-primary
                         text-[11px]
@@ -1052,11 +1482,14 @@ const ChatArea = ({
                       <div
                         className="
                           flex
-                          items-center gap-2
+                          items-center
+                          gap-2
                           rounded-xl
-                          border border-border
+                          border
+                          border-border
                           bg-card
-                          px-4 py-3
+                          px-4
+                          py-3
                           shadow-sm
                         "
                       >
@@ -1093,9 +1526,11 @@ const ChatArea = ({
               items-center
               justify-between
               rounded-xl
-              border border-destructive/20
+              border
+              border-destructive/20
               bg-destructive/5
-              px-4 py-3
+              px-4
+              py-3
             "
           >
             <p className="text-[12px] text-destructive">
@@ -1104,7 +1539,9 @@ const ChatArea = ({
 
             <button
               type="button"
-              onClick={() => setSendError("")}
+              onClick={() =>
+                setSendError("")
+              }
               className="
                 text-[11px]
                 text-muted-foreground
@@ -1133,7 +1570,8 @@ const ChatArea = ({
               transition-all
               duration-200
               ${
-                conversationId || message.trim()
+                conversationId ||
+                message.trim()
                   ? `
                     border-border
                     bg-card
@@ -1149,8 +1587,6 @@ const ChatArea = ({
               }
             `}
           >
-            {/* Textarea */}
-
             <textarea
               ref={textareaRef}
               value={message}
@@ -1165,9 +1601,7 @@ const ChatArea = ({
                   ? "Message Relay..."
                   : "Start a conversation..."
               }
-              disabled={
-                isGenerating
-              }
+              disabled={isGenerating}
               rows={1}
               className="
                 max-h-44
@@ -1176,7 +1610,8 @@ const ChatArea = ({
                 resize-none
                 overflow-y-auto
                 bg-transparent
-                px-4 py-3.5
+                px-4
+                py-3.5
                 text-[15px]
                 leading-7
                 text-foreground
@@ -1187,20 +1622,19 @@ const ChatArea = ({
               "
             />
 
-            {/* Composer footer */}
-
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-1.5">
-
-                {/* Attach */}
 
                 <button
                   type="button"
                   disabled={isGenerating}
                   aria-label="Attach file"
                   className="
-                    flex h-9 w-9
-                    items-center justify-center
+                    flex
+                    h-9
+                    w-9
+                    items-center
+                    justify-center
                     rounded-xl
                     text-muted-foreground
                     transition-colors
@@ -1222,14 +1656,17 @@ const ChatArea = ({
                   </svg>
                 </button>
 
-                {/* Agent mode */}
-
                 <label className="hidden sm:flex">
-                  <span className="sr-only">Agent mode</span>
+                  <span className="sr-only">
+                    Agent mode
+                  </span>
+
                   <select
                     value={selectedAgent}
                     onChange={(event) =>
-                      setSelectedAgent(event.target.value as AgentName)
+                      setSelectedAgent(
+                        event.target.value as AgentName
+                      )
                     }
                     disabled={isGenerating}
                     className="
@@ -1247,18 +1684,36 @@ const ChatArea = ({
                       disabled:opacity-30
                     "
                   >
-                    <option value="auto">Auto</option>
-                    <option value="chat">Chat</option>
-                    <option value="search">Search</option>
-                    <option value="ppt">PPT</option>
-                    <option value="pdf">PDF</option>
-                    <option value="coding">Coding</option>
-                    <option value="imageGen">Image generation</option>
+                    <option value="auto">
+                      Auto
+                    </option>
+
+                    <option value="chat">
+                      Chat
+                    </option>
+
+                    <option value="search">
+                      Search
+                    </option>
+
+                    <option value="ppt">
+                      PPT
+                    </option>
+
+                    <option value="pdf">
+                      PDF
+                    </option>
+
+                    <option value="coding">
+                      Coding
+                    </option>
+
+                    <option value="imageGen">
+                      Image generation
+                    </option>
                   </select>
                 </label>
               </div>
-
-              {/* Send */}
 
               <button
                 type="submit"
@@ -1268,8 +1723,11 @@ const ChatArea = ({
                 }
                 aria-label="Send message"
                 className="
-                  flex h-10 w-10
-                  items-center justify-center
+                  flex
+                  h-10
+                  w-10
+                  items-center
+                  justify-center
                   rounded-xl
                   bg-primary
                   text-primary-foreground

@@ -3,7 +3,6 @@ import type { Request, Response } from 'express';
 import axios from 'axios';
 import { agentGraph } from '../graph/graph';
 import { addMessageToMemory } from '../config/memory';
-import { redisClient } from '@repo/redis';
 
 export const agentController = async (req: Request, res: Response) => {
     try {
@@ -21,21 +20,29 @@ export const agentController = async (req: Request, res: Response) => {
             agent,
         });
 
-        const response = result.aiResponse
+        const response = typeof result.aiResponse === 'string'
+            ? result.aiResponse
+            : 'The agent did not return a response.';
 
-        await addMessageToMemory(conversationId, "user", prompt);
-        await addMessageToMemory(conversationId, "assistant", response);
+        try {
+            await addMessageToMemory(conversationId, "user", prompt);
+            await addMessageToMemory(conversationId, "assistant", response);
+        } catch (memoryError) {
+            console.warn("Agent memory update failed; continuing with response:", memoryError);
+        }
 
         await axios.post(`${process.env.CHAT_SERVICE_URL}/message`, {
             conversationId,
             role: "assistant",
             content: response,
-            images: result.images || []
+            images: result.images || [],
+            artifacts: result?.artifacts || []
         });
 
         return res.status(200).json({
             response
-            , images: result.images || []
+            , images: result.images || [],
+            artifacts: result.artifacts || [],
         });
 
 

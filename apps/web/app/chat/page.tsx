@@ -12,6 +12,7 @@ import {
   Conversation,
   useConversationStore,
 } from "../../store/conversation.store";
+import type { Artifact as GeneratedArtifact } from "../../lib/conversation";
 
 const ChatPage = () => {
   const router = useRouter();
@@ -20,6 +21,7 @@ const ChatPage = () => {
     useState<Conversation | null>(null);
 
   const [isArtifactOpen, setIsArtifactOpen] = useState(false);
+  const [artifacts, setArtifacts] = useState<GeneratedArtifact[]>([]);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
 
@@ -89,6 +91,7 @@ const ChatPage = () => {
 
   const handleConversationSelect = (conversation: Conversation) => {
     setActiveConversation(conversation);
+    setIsArtifactOpen(false);
     setIsMobileSidebarOpen(false);
   };
 
@@ -169,6 +172,7 @@ const ChatPage = () => {
           onConversationUpdated={handleConversationUpdated}
           isDesktopSidebarOpen={isDesktopSidebarOpen}
           onArtifactOpen={() => setIsArtifactOpen(true)}
+          onArtifactsChange={setArtifacts}
           onSidebarOpen={handleMobileSidebarOpen}
         />
       </section>
@@ -181,6 +185,7 @@ const ChatPage = () => {
         <aside className="relay-slide-in-right hidden h-full shrink-0 lg:flex">
           <Artifact
             isOpen={isArtifactOpen}
+            artifacts={artifacts}
             onClose={() => setIsArtifactOpen(false)}
           />
         </aside>
@@ -219,6 +224,7 @@ const ChatPage = () => {
         <div className="fixed inset-0 z-50 lg:hidden">
           <Artifact
             isOpen={isArtifactOpen}
+            artifacts={artifacts}
             onClose={() => setIsArtifactOpen(false)}
           />
         </div>
