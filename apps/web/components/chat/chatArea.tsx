@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 
 import {
   createConversation as createConversationApi,
@@ -72,36 +73,108 @@ const SearchImage = ({
 }) => {
   const [hasError, setHasError] =
     useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
 
   if (hasError) {
     return null;
   }
 
   return (
-    <a
-      href={src}
-      target="_blank"
-      rel="noreferrer"
-      className="
-        block
-        overflow-hidden
-        rounded-xl
-        border
-        border-border
-        bg-card
-        transition-opacity
-        hover:opacity-85
-      "
-    >
-      <img
-        src={src}
-        alt={`Search result ${index + 1}`}
-        loading="lazy"
-        onError={() => setHasError(true)}
-        className="aspect-video w-full object-cover"
-      />
-    </a>
+    <>
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        aria-label={`Open image ${index + 1} larger`}
+        className="
+          block
+          w-full
+          overflow-hidden
+          rounded-xl
+          border
+          border-border
+          bg-card
+          text-left
+          transition-opacity
+          hover:opacity-85
+        "
+      >
+        <img
+          src={src}
+          alt={`Generated image ${index + 1}`}
+          loading="lazy"
+          onError={() => setHasError(true)}
+          className="aspect-video w-full object-cover"
+        />
+      </button>
+
+      {isOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Generated image ${index + 1}`}
+            onClick={() => setIsOpen(false)}
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-4 sm:p-8"
+          >
+            <div
+              onClick={(event) => event.stopPropagation()}
+              className="relative max-h-[92vh] max-w-[min(92vw,1100px)] rounded-2xl border border-border bg-card p-3 shadow-2xl"
+            >
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                aria-label="Close image"
+                className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-black/65 text-white transition-colors hover:bg-black/85"
+              >
+                <svg
+                  width="19"
+                  height="19"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                >
+                  <path d="m6 6 12 12" />
+                  <path d="M18 6 6 18" />
+                </svg>
+              </button>
+
+              <img
+                src={src}
+                alt={`Generated image ${index + 1}`}
+                className="max-h-[calc(92vh-24px)] max-w-full rounded-xl object-contain"
+              />
+            </div>
+          </div>,
+          document.body
+        )}
+    </>
   );
+};
+
+const extractGeneratedImageUrls = (content: string) => {
+  return Array.from(content.matchAll(/https?:\/\/[^\s]+/g))
+    .map(([url]) => url.replace(/[),.;]+$/, ""))
+    .filter(
+      (url) =>
+        url.includes("generated-images/") ||
+        /\.(png|jpe?g|gif|webp)(?:\?|$)/i.test(url)
+    );
 };
 
 /* =========================================================
@@ -369,7 +442,12 @@ const ChatArea = ({
               id: item._id,
               role: item.role as Message["role"],
               content: item.content,
-              images: item.images ?? [],
+              images: Array.from(
+                new Set([
+                  ...(item.images ?? []),
+                  ...extractGeneratedImageUrls(item.content),
+                ])
+              ),
               artifacts: item.artifacts ?? [],
             }));
 
@@ -504,12 +582,14 @@ const ChatArea = ({
           ? agentResponse.response
           : "";
 
-      const responseImages =
-        Array.isArray(
-          agentResponse?.images
-        )
-          ? agentResponse.images
-          : [];
+      const responseImages = Array.from(
+        new Set([
+          ...(Array.isArray(agentResponse?.images)
+            ? agentResponse.images
+            : []),
+          ...extractGeneratedImageUrls(responseText),
+        ])
+      );
 
       const responseArtifacts: Artifact[] =
         Array.isArray(

@@ -1,6 +1,7 @@
 import express from "express";
-import {connectToDatabase} from "../config/database";
+import { connectToDatabase } from "../config/database";
 import agentRoutes from "../routes/agent.route";
+import { initializeStorage } from "../config/storage/storage";
 
 const app = express();
 
@@ -27,7 +28,17 @@ app.get("/", (_, res) => {
 
 const PORT = Number(process.env.PORT);
 
-app.listen(PORT, () => {
-  console.log(`Agent service running on http://localhost:${PORT}`);
-  connectToDatabase();
+
+async function startServer() {
+    await initializeStorage();
+    await connectToDatabase();
+    app.listen(PORT, () => {
+        console.log(`Agent service is running on port ${PORT}`);
+    });
+}
+
+
+startServer().catch((error) => {
+    console.error("Failed to start the server:", error);
+    process.exit(1);
 });
