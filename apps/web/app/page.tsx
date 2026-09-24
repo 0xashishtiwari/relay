@@ -224,7 +224,7 @@ export default function Page() {
             <motion.span variants={item} className="block">
               One chat.
             </motion.span>
-            <motion.span variants={item} className="block">
+            <motion.span variants={item} className="block font-display font-[300] italic tracking-[-0.03em] text-foreground/70">
               Every agent you need.
             </motion.span>
           </motion.h1>
