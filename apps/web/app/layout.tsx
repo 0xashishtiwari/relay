@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import { Toaster } from "sonner";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -12,15 +13,11 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Relay",
-  description: "A modern, fast, and secure web application built with Next.js, TypeScript, and Firebase.",
+  title: "Relay — One chat. Every agent you need.",
+  description: "Relay turns one conversation into a workspace for reasoning, coding, research, images, and presentations. One conversation. Multiple specialized agents.",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -34,7 +31,8 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <Toaster position="top-center" expand={false} closeButton visibleToasts={3} toastOptions={{ duration: 3000, style: { fontSize: "13px", padding: "10px 14px", borderRadius: "8px", maxWidth: "360px" } as React.CSSProperties }} />
         {children}
       </body>
     </html>

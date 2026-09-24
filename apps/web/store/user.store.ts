@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { User } from "../types/user";
 
 interface UserStore {
@@ -10,13 +11,21 @@ interface UserStore {
   setLoading: (loading: boolean) => void;
 }
 
-export const useUserStore = create<UserStore>((set) => ({
-  user: null,
-  isLoading: true,
+export const useUserStore = create<UserStore>()(
+  persist(
+    (set) => ({
+      user: null,
+      isLoading: true,
 
-  setUser: (user) => set({ user }),
+      setUser: (user) => set({ user, isLoading: false }),
 
-  clearUser: () => set({ user: null }),
+      clearUser: () => set({ user: null }),
 
-  setLoading: (isLoading) => set({ isLoading }),
-}));
+      setLoading: (isLoading) => set({ isLoading }),
+    }),
+    {
+      name: "relay-user",
+      partialize: (state) => ({ user: state.user }),
+    }
+  )
+);

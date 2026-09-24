@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 export interface Conversation {
   _id: string;
@@ -19,43 +20,54 @@ interface ConversationStore {
   setLoading: (loading: boolean) => void;
 }
 
-export const useConversationStore = create<ConversationStore>((set) => ({
-  conversations: [],
-  selectedConversation: null,
-  isLoading: true,
+export const useConversationStore = create<ConversationStore>()(
+  persist(
+    (set) => ({
+      conversations: [],
+      selectedConversation: null,
+      isLoading: true,
 
-  setConversations: (conversations) => set({ conversations }),
+      setConversations: (conversations) => set({ conversations }),
 
-  setSelectedConversation: (conversation) =>
-    set({ selectedConversation: conversation }),
+      setSelectedConversation: (conversation) =>
+        set({ selectedConversation: conversation }),
 
-  addConversation: (conversation) =>
-    set((state) => ({
-      conversations: [conversation, ...state.conversations],
-      selectedConversation: conversation,
-    })),
+      addConversation: (conversation) =>
+        set((state) => ({
+          conversations: [conversation, ...state.conversations],
+          selectedConversation: conversation,
+        })),
 
-  updateConversation: (conversation) =>
-    set((state) => ({
-      conversations: state.conversations.map((item) =>
-        item._id === conversation._id ? conversation : item,
-      ),
-      selectedConversation:
-        state.selectedConversation?._id === conversation._id
-          ? conversation
-          : state.selectedConversation,
-    })),
+      updateConversation: (conversation) =>
+        set((state) => ({
+          conversations: state.conversations.map((item) =>
+            item._id === conversation._id ? conversation : item,
+          ),
+          selectedConversation:
+            state.selectedConversation?._id === conversation._id
+              ? conversation
+              : state.selectedConversation,
+        })),
 
-  removeConversation: (conversationId) =>
-    set((state) => ({
-      conversations: state.conversations.filter(
-        (conversation) => conversation._id !== conversationId,
-      ),
-      selectedConversation:
-        state.selectedConversation?._id === conversationId
-          ? null
-          : state.selectedConversation,
-    })),
+      removeConversation: (conversationId) =>
+        set((state) => ({
+          conversations: state.conversations.filter(
+            (conversation) => conversation._id !== conversationId,
+          ),
+          selectedConversation:
+            state.selectedConversation?._id === conversationId
+              ? null
+              : state.selectedConversation,
+        })),
 
-  setLoading: (isLoading) => set({ isLoading }),
-}));
+      setLoading: (isLoading) => set({ isLoading }),
+    }),
+    {
+      name: "relay-conversations",
+      partialize: (state) => ({
+        conversations: state.conversations,
+        selectedConversation: state.selectedConversation,
+      }),
+    }
+  )
+);
