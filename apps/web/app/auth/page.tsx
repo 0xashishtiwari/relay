@@ -41,11 +41,15 @@ export default function Page() {
     checkSession();
   }, [router, setUser]);
 
-  const handleLogin = async (token: string) => {
+  const handleLogin = async (token: string, profile?: { name?: string | null; avatar?: string | null }) => {
     try {
       setLoading(true);
       setError(null);
-      await api.post("/auth/login", { token });
+      await api.post("/auth/login", {
+        token,
+        name: profile?.name ?? undefined,
+        avatar: profile?.avatar ?? undefined,
+      });
       const user = await getCurrentUser();
       localStorage.setItem("justLoggedIn", "true");
       setUser(user);
@@ -64,7 +68,7 @@ export default function Page() {
       setError(null);
       const result = await signInWithPopup(auth, googleProvider);
       const token = await result.user.getIdToken();
-      await handleLogin(token);
+      await handleLogin(token, { name: result.user.displayName, avatar: result.user.photoURL });
     } catch (err: any) {
       // Ignore popup closed
       if (err?.code === "auth/popup-closed-by-user" || err?.code === "auth/cancelled-popup-request") {

@@ -7,6 +7,7 @@ interface UserStore {
   isLoading: boolean;
 
   setUser: (user: User | null) => void;
+  patchUser: (partial: Partial<User>) => void;
   clearUser: () => void;
   setLoading: (loading: boolean) => void;
 }
@@ -18,6 +19,9 @@ export const useUserStore = create<UserStore>()(
       isLoading: true,
 
       setUser: (user) => set({ user, isLoading: false }),
+
+      patchUser: (partial) =>
+        set((state) => (state.user ? { user: { ...state.user, ...partial } } : state)),
 
       clearUser: () => set({ user: null }),
 

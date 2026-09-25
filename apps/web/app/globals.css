@@ -285,3 +285,10 @@
 }
 .relay-code-copy:hover { color: var(--foreground); }
 .relay-code-card pre { border: 0; border-radius: 0; margin: 0; }
+
+/* Razorpay checkout renders in a cross-origin iframe that inherits
+   color-scheme: dark from <html>, so the browser forces an opaque white
+   background where the translucent backdrop should be. Pin it to light. */
+iframe[src*="razorpay"] {
+  color-scheme: light;
+}

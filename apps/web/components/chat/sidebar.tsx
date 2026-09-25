@@ -6,12 +6,39 @@ import { createConversation as createConversationApi, getConversations } from ".
 import { useUserStore } from "../../store/user.store";
 import { auth } from "../../lib/firebase";
 import { signOut } from "firebase/auth";
-import { logout } from "../../lib/auth";
+import { logout, deleteAccount } from "../../lib/auth";
+import { toast } from "sonner";
 import { Conversation, useConversationStore } from "../../store/conversation.store";
 import Link from "next/link";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import BillingDrawer from "../BillingDrawer";
 
 const ease = [0.16, 1, 0.3, 1] as const;
+
+// Google profile photos 403 without a no-referrer policy, and stored
+// avatar URLs can go stale — always fall back to the name initial.
+function UserAvatar({ name, avatar }: { name?: string; avatar?: string }) {
+  const fbPhoto = auth.currentUser?.photoURL ?? "";
+  const src = avatar || fbPhoto || "";
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [src]);
+  if (!src || failed) {
+    return (
+      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-xs font-medium ring-1 ring-border">
+        {name?.charAt(0).toUpperCase() || "?"}
+      </span>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+      className="h-7 w-7 rounded-full object-cover ring-1 ring-border"
+    />
+  );
+}
 
 interface SidebarProps {
   activeConversationId?: string;
@@ -57,7 +84,10 @@ export default function Sidebar({ activeConversationId, onConversationSelect, on
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [billingOpen, setBillingOpen] = useState(false);
   const [isDark, setIsDark] = useState(true);
   const menuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -203,7 +233,37 @@ export default function Sidebar({ activeConversationId, onConversationSelect, on
     onConversationSelect?.(conversation);
   };
 
+  const handleDeleteAccount = async () => {
+    if (isDeletingAccount) return;
+    try {
+      setIsDeletingAccount(true);
+      await deleteAccount();
+      try {
+        await signOut(auth);
+      } catch (e) {
+        console.error("Firebase sign out failed:", e);
+      }
+      clearUser();
+      setConversations([]);
+      setSelectedConversation(null);
+      setMenuOpen(false);
+      toast.success("Account deleted", {
+        description: "Your Relay account and data were removed.",
+      });
+      window.location.replace("/auth");
+    } catch (e) {
+      console.error("Failed to delete account:", e);
+      toast.error("Couldn't delete account", {
+        description: "Try again. If it persists, sign out and back in.",
+      });
+    } finally {
+      setIsDeletingAccount(false);
+      setConfirmDeleteAccount(false);
+    }
+  };
+
   return (
+    <>
     <motion.aside
       animate={{ width: collapsed ? 64 : 256 }}
       transition={{ duration: shouldReduce ? 0 : 0.18, ease: [0.16, 1, 0.3, 1] }}
@@ -372,8 +432,24 @@ export default function Sidebar({ activeConversationId, onConversationSelect, on
             </div>
           </div>
 
-          {/* Footer — theme toggle + user */}
+          {/* Footer — billing + theme toggle + user */}
           <div className="border-t border-sidebar-border p-2 space-y-1">
+            <button
+              type="button"
+              onClick={() => setBillingOpen(true)}
+              className="flex w-full items-center justify-between rounded-md border bg-card px-2.5 py-2 text-left shadow-sm transition-colors hover:bg-secondary dark:bg-[#111113] dark:border-[#27272A] dark:hover:bg-[#1A1A1E]"
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary font-mono text-[11px] font-semibold text-primary-foreground">
+                  {(user?.credits ?? 0) >= 1000 ? `${Math.floor((user?.credits ?? 0) / 1000)}k` : `${user?.credits ?? 0}`}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-xs font-medium leading-none capitalize">{user?.plan ?? "free"} plan</span>
+                  <span className="block truncate font-mono text-[11px] text-muted-foreground">{(user?.credits ?? 0).toLocaleString()} credits</span>
+                </span>
+              </span>
+              <span className="shrink-0 rounded border bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">Upgrade</span>
+            </button>
             <div className="flex items-center justify-between rounded-md px-2 py-1.5">
               <div className="flex items-center gap-2">
                 <span className="flex h-6 w-6 items-center justify-center rounded-md bg-secondary text-muted-foreground">
@@ -406,11 +482,7 @@ export default function Sidebar({ activeConversationId, onConversationSelect, on
                 onClick={() => setMenuOpen((v) => !v)}
                 className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
               >
-                {user?.avatar ? (
-                  <img src={user.avatar} alt="" className="h-7 w-7 rounded-full object-cover ring-1 ring-border" />
-                ) : (
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-xs font-medium ring-1 ring-border">{user?.name?.charAt(0).toUpperCase() || "?"}</span>
-                )}
+                <UserAvatar name={user?.name} avatar={user?.avatar} />
                 <div className="min-w-0 flex-1 text-left">
                   <p className="truncate text-[13px] font-medium leading-none">{user?.name || "Guest"}</p>
                   <p className="truncate font-mono text-[11px] text-muted-foreground">{user?.email || "Sign in to sync"}</p>
@@ -445,6 +517,39 @@ export default function Sidebar({ activeConversationId, onConversationSelect, on
                       {isLoggingOut ? <span className="h-3 w-3 animate-spin rounded-full border border-destructive/30 border-t-destructive" /> : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></svg>}
                       {isLoggingOut ? "Signing out…" : "Sign out"}
                     </button>
+                    <div className="my-1 h-px bg-border" />
+                    {confirmDeleteAccount ? (
+                      <div className="rounded-md bg-destructive/5 p-2">
+                        <p className="px-1 text-[11px] font-medium text-destructive">Delete account permanently?</p>
+                        <div className="mt-1.5 flex gap-1">
+                          <button
+                            type="button"
+                            onClick={handleDeleteAccount}
+                            disabled={isDeletingAccount}
+                            className="flex-1 rounded-md bg-destructive px-2 py-1.5 text-[11px] font-medium text-white hover:opacity-90 disabled:opacity-50"
+                          >
+                            {isDeletingAccount ? "Deleting…" : "Delete"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteAccount(false)}
+                            disabled={isDeletingAccount}
+                            className="flex-1 rounded-md border px-2 py-1.5 text-[11px] text-muted-foreground hover:bg-secondary disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteAccount(true)}
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /></svg>
+                        Delete account
+                      </button>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -484,15 +589,21 @@ export default function Sidebar({ activeConversationId, onConversationSelect, on
               );
             })}
           </div>
+          <button
+            type="button"
+            onClick={() => setBillingOpen(true)}
+            title="Billing & credits"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-black/[0.04] hover:text-foreground dark:hover:bg-white/[0.06]"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M12 2v20" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+          </button>
           <div className="mt-auto">
-            {user?.avatar ? (
-              <img src={user.avatar} alt="" className="h-7 w-7 rounded-full object-cover ring-1 ring-border" />
-            ) : (
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-xs ring-1 ring-border">{user?.name?.charAt(0).toUpperCase() || "?"}</span>
-            )}
+            <UserAvatar name={user?.name} avatar={user?.avatar} />
           </div>
         </div>
       )}
     </motion.aside>
+    <BillingDrawer open={billingOpen} onClose={() => setBillingOpen(false)} />
+    </>
   );
 }

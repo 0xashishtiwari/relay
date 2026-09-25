@@ -7,6 +7,7 @@ import Artifact from "../../components/chat/Artifact";
 import ChatArea from "../../components/chat/chatArea";
 import Sidebar from "../../components/chat/sidebar";
 import { getCurrentUser } from "../../lib/auth";
+import { auth as firebaseAuth } from "../../lib/firebase";
 import { useUserStore } from "../../store/user.store";
 import { Conversation, useConversationStore } from "../../store/conversation.store";
 import type { Artifact as GeneratedArtifact } from "../../lib/conversation";
@@ -51,6 +52,16 @@ export default function ChatPage() {
           return;
         }
         setUser(user);
+        // Backfill profile for sessions stored before avatar sync existed.
+        const fbPhoto = firebaseAuth.currentUser?.photoURL;
+        const fbName = firebaseAuth.currentUser?.displayName;
+        if ((fbPhoto && !user.avatar) || (fbName && !user.name)) {
+          setUser({
+            ...user,
+            avatar: user.avatar || fbPhoto || "",
+            name: user.name || fbName || "",
+          });
+        }
         setIsCheckingAuth(false);
       } catch (error) {
         console.error("Failed to load signed-in user:", error);

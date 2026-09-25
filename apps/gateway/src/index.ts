@@ -26,6 +26,8 @@ app.use('/chat', protect, proxyWithHeader(process.env.CHAT_SERVICE_URL as string
 
 app.use('/agent', protect, proxy(process.env.AGENT_SERVICE_URL as string));
 
+app.use('/billing', protect, proxyWithHeader(process.env.BILLING_SERVICE_URL as string));
+
 app.use("/health", (_, res) => {
     res.status(200).json({
         service: "gateway",

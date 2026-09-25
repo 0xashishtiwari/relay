@@ -24,3 +24,7 @@ export const logout = async (): Promise<void> => {
         throw error;
     }
 }
+
+export const deleteAccount = async (): Promise<void> => {
+    await api.delete("/auth/account");
+}
