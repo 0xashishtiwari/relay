@@ -79,7 +79,98 @@ const extractGeneratedImageUrls = (content: string) => {
     .filter((url) => url.includes("generated-images/") || /\.(png|jpe?g|gif|webp)(?:\?|$)/i.test(url));
 };
 
+const AGENT_LABELS: Record<AgentName, string> = {
+  auto: "Auto",
+  chat: "Chat",
+  search: "Search",
+  coding: "Coding",
+  imageGen: "Image",
+  ppt: "Presentation",
+  pdf: "PDF",
+};
+
+const AGENT_OPTIONS: Array<readonly [string, AgentName]> = [
+  ["Auto", "auto"],
+  ["Chat", "chat"],
+  ["Search", "search"],
+  ["Coding", "coding"],
+  ["Image", "imageGen"],
+  ["Presentation", "ppt"],
+  ["PDF", "pdf"],
+];
+
+const extractPdfUrls = (content: string) => {
+  const urls = new Set<string>();
+  // Markdown links first: [Download PDF](https://...)
+  for (const m of content.matchAll(/\[[^\]]*(?:pdf|download)[^\]]*\]\((https?:\/\/[^)\s]+)\)/gi)) {
+    const href = m[1];
+    if (href) urls.add(href.replace(/[),.;]+$/, ""));
+  }
+  // Bare .pdf URLs (e.g. pasted SAS links)
+  for (const m of content.matchAll(/https?:\/\/[^\s)]+?\.pdf(?:\?[^\s)]*)?/gi)) {
+    urls.add(m[0].replace(/[),.;]+$/, ""));
+  }
+  return Array.from(urls);
+};
+
 const InlineCode = ({ className, children }: { className?: string; children?: ReactNode }) => <code className={className}>{children}</code>;
+
+const PdfDownloadCard = ({ url, title }: { url: string; title?: string }) => {
+  const fileName = (() => {
+    try {
+      const path = new URL(url).pathname.split("/").pop() ?? "";
+      return decodeURIComponent(path) || "document.pdf";
+    } catch {
+      return "document.pdf";
+    }
+  })();
+  const download = async () => {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = fileName.endsWith(".pdf") ? fileName : `${fileName}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 5000);
+    } catch {
+      // Fallback: open in a new tab so the user can still save it.
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  };
+  return (
+    <div className="mt-4 flex w-full items-center justify-between gap-3 rounded-lg border bg-card px-3.5 py-3">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-red-500/10 font-mono text-[10px] font-bold text-red-600 dark:text-red-400">PDF</span>
+        <div className="min-w-0">
+          <p className="truncate text-[13px] font-medium">{title ?? fileName}</p>
+          <p className="truncate font-mono text-[11px] text-muted-foreground">PDF document · link expires in 24h</p>
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-1.5">
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-md border px-2.5 py-1.5 text-xs font-medium hover:bg-secondary"
+        >
+          Open
+        </a>
+        <button
+          type="button"
+          onClick={download}
+          className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          Download
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const CodePre = ({ children }: { children?: ReactNode }) => {
   const [copied, setCopied] = useState(false);
@@ -105,22 +196,26 @@ const CodePre = ({ children }: { children?: ReactNode }) => {
   );
 };
 
-const ArtifactCard = ({ artifact, onOpen }: { artifact: Artifact; onOpen: () => void }) => (
+const ArtifactCard = ({ artifact, onOpen }: { artifact: Artifact; onOpen: () => void }) => {
+  const fileCount = Array.isArray(artifact.files) ? artifact.files.length : 0;
+  const isPdf = (artifact.type || "").toLowerCase().includes("pdf");
+  return (
   <button
     type="button"
     onClick={onOpen}
     className="flex w-full items-center justify-between rounded-lg border bg-card px-3.5 py-3 text-left hover:bg-secondary/40 transition-colors"
   >
     <div className="flex min-w-0 items-center gap-2.5">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border bg-secondary font-mono text-[11px]">◈</span>
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border bg-secondary font-mono text-[11px]">{isPdf ? "PDF" : "◈"}</span>
       <div className="min-w-0">
-        <p className="truncate text-[13px] font-medium">Generated project</p>
-        <p className="font-mono text-[11px] text-muted-foreground">{artifact.files.length} {artifact.files.length === 1 ? "file" : "files"}</p>
+        <p className="truncate text-[13px] font-medium">{artifact.title ?? (isPdf ? "Generated PDF" : "Generated project")}</p>
+        <p className="font-mono text-[11px] text-muted-foreground">{fileCount} {fileCount === 1 ? "file" : "files"}</p>
       </div>
     </div>
     <span className="ml-3 shrink-0 text-xs text-muted-foreground">Open →</span>
   </button>
-);
+  );
+};
 
 const AgentActivity = ({ isGenerating, agent }: { isGenerating: boolean; agent: AgentName }) => {
   const [step, setStep] = useState(0);
@@ -140,7 +235,7 @@ const AgentActivity = ({ isGenerating, agent }: { isGenerating: boolean; agent: 
 
   if (!isGenerating) return null;
 
-  const agentLabel = agent !== "auto" ? `${agent} agent` : null;
+  const agentLabel = agent !== "auto" ? `${AGENT_LABELS[agent] ?? agent} agent` : null;
 
   return (
     <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} className="rounded-lg border bg-card px-3.5 py-3">
@@ -163,7 +258,7 @@ const AgentActivity = ({ isGenerating, agent }: { isGenerating: boolean; agent: 
         ))}
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
-        {["Search", "Coding", "Presentation"].map((a, i) => (
+        {["Search", "Coding", "Presentation", "PDF", "Image"].map((a, i) => (
           <motion.span
             key={a}
             initial={{ opacity: 0, scale: 0.96 }}
@@ -233,7 +328,8 @@ export default function ChatArea({
         const loaded = formatted.flatMap((m) => m.artifacts ?? []);
         setArtifacts(loaded);
         onArtifactsChange?.(loaded);
-        if (loaded.length > 0) onArtifactOpen?.();
+        // Never auto-open the artifact panel on history load.
+        // The panel only opens for fresh coding output (see sendMessage).
       } catch (e) {
         console.error("Failed to load messages:", e);
         if (!cancelled) setSendError("Unable to load this conversation.");
@@ -287,20 +383,30 @@ export default function ChatArea({
       if (textareaRef.current) textareaRef.current.style.height = "auto";
       const agentResponse = await sendAgentMessage(activeConversationId, content, selectedAgent);
       const responseText = typeof agentResponse?.response === "string" ? agentResponse.response : "";
+      if (!responseText.trim()) {
+        throw new Error("Empty response from agent");
+      }
       const responseImages = Array.from(new Set([...(Array.isArray(agentResponse?.images) ? agentResponse.images : []), ...extractGeneratedImageUrls(responseText)]));
       const responseArtifacts: Artifact[] = Array.isArray(agentResponse?.artifacts) ? agentResponse.artifacts : [];
+      // PDF responses are inline-only (download link/card in the message).
+      // Keep any stray pdf-type artifacts out of the side panel entirely.
+      const panelArtifacts = responseArtifacts.filter(
+        (a) => !(a?.type || "").toLowerCase().includes("pdf")
+      );
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
         content: responseText,
         images: responseImages,
-        artifacts: responseArtifacts.length > 0 ? responseArtifacts : undefined,
+        artifacts: panelArtifacts.length > 0 ? panelArtifacts : undefined,
       };
       setMessages((c) => [...c, assistantMessage]);
-      if (responseArtifacts.length > 0) {
-        const next = [...artifacts, ...responseArtifacts];
+      if (panelArtifacts.length > 0) {
+        const next = [...artifacts, ...panelArtifacts];
         setArtifacts(next);
         onArtifactsChange?.(next);
+        // Only the coding agent auto-opens the artifact panel.
+        // PDF (and all other agents) stay inline in the chat response.
         if (selectedAgent === "coding") onArtifactOpen?.();
       }
       if (conversationToSync) {
@@ -510,6 +616,16 @@ export default function ChatArea({
                                 components={{
                                   code: InlineCode as any,
                                   pre: CodePre as any,
+                                  a: ({ href, children }) => (
+                                    <a
+                                      href={href}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="font-medium text-primary underline underline-offset-4 hover:opacity-80"
+                                    >
+                                      {children}
+                                    </a>
+                                  ),
                                   table: ({ children }) => <div className="relay-table-wrap"><table>{children}</table></div>,
                                 }}
                               >
@@ -520,6 +636,13 @@ export default function ChatArea({
                               <div className="mt-4 grid gap-2 sm:grid-cols-2">
                                 {item.images.map((img, idx) => (
                                   <SearchImage key={`${img}-${idx}`} src={img} index={idx} />
+                                ))}
+                              </div>
+                            )}
+                            {!isUser && extractPdfUrls(item.content).length > 0 && (
+                              <div className="mt-2 space-y-2">
+                                {extractPdfUrls(item.content).map((pdfUrl) => (
+                                  <PdfDownloadCard key={pdfUrl} url={pdfUrl} />
                                 ))}
                               </div>
                             )}
@@ -651,7 +774,7 @@ export default function ChatArea({
                   </AnimatePresence>
                 </div>
 
-                <div ref={agentRef} className="relative hidden sm:block">
+                <div ref={agentRef} className="relative">
                   <button
                     type="button"
                     onClick={() => setShowAgentMenu((v) => !v)}
@@ -659,7 +782,7 @@ export default function ChatArea({
                     className="flex h-8 items-center gap-1.5 rounded-full border bg-secondary px-3 text-xs font-medium hover:bg-secondary/80 disabled:opacity-30"
                   >
                     <span className="h-1.5 w-1.5 rounded-full bg-foreground" />
-                    {selectedAgent === "auto" ? "Auto" : selectedAgent}
+                    {AGENT_LABELS[selectedAgent] ?? selectedAgent}
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="m6 9 6 6 6-6" /></svg>
                   </button>
                   <AnimatePresence>
@@ -671,16 +794,7 @@ export default function ChatArea({
                         transition={{ duration: 0.14 }}
                         className="absolute bottom-9 left-0 z-10 w-48 overflow-hidden rounded-lg border bg-popover p-1 shadow-lg"
                       >
-                        {(
-                          [
-                            ["Auto", "auto"],
-                            ["Chat", "chat"],
-                            ["Search", "search"],
-                            ["Coding", "coding"],
-                            ["Image", "imageGen"],
-                            ["Presentation", "ppt"],
-                          ] as const
-                        ).map(([label, value]) => (
+                        {AGENT_OPTIONS.map(([label, value]) => (
                           <button
                             key={value}
                             type="button"

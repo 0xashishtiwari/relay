@@ -15,5 +15,5 @@ export async function uploadFile({ buffer, blobName, contentType } : UploadFileP
     return {
         blobName: blobName,
         url: blockBlobClient.url
-    }
+    };
 }
