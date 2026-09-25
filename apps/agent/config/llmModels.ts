@@ -21,10 +21,12 @@ export const getModel = async (agent: string) => {
         case "chat":
             return groq;
         case "search":
-            return groq;
+            return gemini;
         case "coding":
             return openrouter;
         case "pdf":
+            return gemini;
+        case "ppt":
             return gemini;
         case "router":
             return groq;

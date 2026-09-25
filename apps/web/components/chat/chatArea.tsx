@@ -104,7 +104,8 @@ const extractPdfUrls = (content: string) => {
   // Markdown links first: [Download PDF](https://...)
   for (const m of content.matchAll(/\[[^\]]*(?:pdf|download)[^\]]*\]\((https?:\/\/[^)\s]+)\)/gi)) {
     const href = m[1];
-    if (href) urls.add(href.replace(/[),.;]+$/, ""));
+    // Exclude .pptx links (handled by the presentation extractor below).
+    if (href && !/\.pptx/i.test(href)) urls.add(href.replace(/[),.;]+$/, ""));
   }
   // Bare .pdf URLs (e.g. pasted SAS links)
   for (const m of content.matchAll(/https?:\/\/[^\s)]+?\.pdf(?:\?[^\s)]*)?/gi)) {
@@ -113,15 +114,31 @@ const extractPdfUrls = (content: string) => {
   return Array.from(urls);
 };
 
+const extractPptUrls = (content: string) => {
+  const urls = new Set<string>();
+  // Markdown links first: [Download Presentation](https://....pptx?...)
+  for (const m of content.matchAll(/\[[^\]]*(?:presentation|ppt|slides?|deck|download)[^\]]*\]\((https?:\/\/[^)\s]+)\)/gi)) {
+    const href = m[1];
+    if (href && /\.pptx/i.test(href)) urls.add(href.replace(/[),.;]+$/, ""));
+  }
+  // Bare .pptx URLs (e.g. pasted SAS links)
+  for (const m of content.matchAll(/https?:\/\/[^\s)]+?\.pptx(?:\?[^\s)]*)?/gi)) {
+    urls.add(m[0].replace(/[),.;]+$/, ""));
+  }
+  return Array.from(urls);
+};
+
 const InlineCode = ({ className, children }: { className?: string; children?: ReactNode }) => <code className={className}>{children}</code>;
 
-const PdfDownloadCard = ({ url, title }: { url: string; title?: string }) => {
+const FileDownloadCard = ({ url, kind, title }: { url: string; kind: "PDF" | "PPT"; title?: string }) => {
+  const ext = kind === "PPT" ? ".pptx" : ".pdf";
+  const fallbackName = kind === "PPT" ? "presentation.pptx" : "document.pdf";
   const fileName = (() => {
     try {
       const path = new URL(url).pathname.split("/").pop() ?? "";
-      return decodeURIComponent(path) || "document.pdf";
+      return decodeURIComponent(path) || fallbackName;
     } catch {
-      return "document.pdf";
+      return fallbackName;
     }
   })();
   const download = async () => {
@@ -132,7 +149,7 @@ const PdfDownloadCard = ({ url, title }: { url: string; title?: string }) => {
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = objectUrl;
-      link.download = fileName.endsWith(".pdf") ? fileName : `${fileName}.pdf`;
+      link.download = fileName.toLowerCase().endsWith(ext) ? fileName : `${fileName}${ext}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -142,13 +159,14 @@ const PdfDownloadCard = ({ url, title }: { url: string; title?: string }) => {
       window.open(url, "_blank", "noopener,noreferrer");
     }
   };
+  const isPpt = kind === "PPT";
   return (
     <div className="mt-4 flex w-full items-center justify-between gap-3 rounded-lg border bg-card px-3.5 py-3">
       <div className="flex min-w-0 items-center gap-2.5">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-red-500/10 font-mono text-[10px] font-bold text-red-600 dark:text-red-400">PDF</span>
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md font-mono text-[10px] font-bold ${isPpt ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-red-500/10 text-red-600 dark:text-red-400"}`}>{kind}</span>
         <div className="min-w-0">
           <p className="truncate text-[13px] font-medium">{title ?? fileName}</p>
-          <p className="truncate font-mono text-[11px] text-muted-foreground">PDF document · link expires in 24h</p>
+          <p className="truncate font-mono text-[11px] text-muted-foreground">{isPpt ? "PowerPoint presentation · link expires in 24h" : "PDF document · link expires in 24h"}</p>
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
@@ -388,11 +406,12 @@ export default function ChatArea({
       }
       const responseImages = Array.from(new Set([...(Array.isArray(agentResponse?.images) ? agentResponse.images : []), ...extractGeneratedImageUrls(responseText)]));
       const responseArtifacts: Artifact[] = Array.isArray(agentResponse?.artifacts) ? agentResponse.artifacts : [];
-      // PDF responses are inline-only (download link/card in the message).
-      // Keep any stray pdf-type artifacts out of the side panel entirely.
-      const panelArtifacts = responseArtifacts.filter(
-        (a) => !(a?.type || "").toLowerCase().includes("pdf")
-      );
+      // PDF / PPT responses are inline-only (download link/card in the message).
+      // Keep any stray pdf/ppt-type artifacts out of the side panel entirely.
+      const panelArtifacts = responseArtifacts.filter((a) => {
+        const t = (a?.type || "").toLowerCase();
+        return !t.includes("pdf") && !t.includes("ppt") && !t.includes("present");
+      });
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
@@ -406,7 +425,7 @@ export default function ChatArea({
         setArtifacts(next);
         onArtifactsChange?.(next);
         // Only the coding agent auto-opens the artifact panel.
-        // PDF (and all other agents) stay inline in the chat response.
+        // PDF / PPT (and all other agents) stay inline in the chat response.
         if (selectedAgent === "coding") onArtifactOpen?.();
       }
       if (conversationToSync) {
@@ -642,7 +661,14 @@ export default function ChatArea({
                             {!isUser && extractPdfUrls(item.content).length > 0 && (
                               <div className="mt-2 space-y-2">
                                 {extractPdfUrls(item.content).map((pdfUrl) => (
-                                  <PdfDownloadCard key={pdfUrl} url={pdfUrl} />
+                                  <FileDownloadCard key={pdfUrl} url={pdfUrl} kind="PDF" />
+                                ))}
+                              </div>
+                            )}
+                            {!isUser && extractPptUrls(item.content).length > 0 && (
+                              <div className="mt-2 space-y-2">
+                                {extractPptUrls(item.content).map((pptUrl) => (
+                                  <FileDownloadCard key={pptUrl} url={pptUrl} kind="PPT" />
                                 ))}
                               </div>
                             )}
