@@ -1,0 +1,13 @@
+node_modules
+.next
+.turbo
+.git
+.gitignore
+.env
+*.env
+*.local
+apps/auth/serviceAccountkey.json
+.opencode
+agent-debug.log
+chat-debug.log
+README.md

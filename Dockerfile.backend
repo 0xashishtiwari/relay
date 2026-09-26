@@ -1,0 +1,23 @@
+# Shared backend image for gateway/auth/chat/billing/agent.
+# Built from the repo root, one image per service:
+#   az acr build -r <REG> -t relay-gateway:latest \
+#     -f Dockerfile.backend --build-arg SERVICE=gateway --build-arg PORT=4000 .
+ARG BUN_VERSION=1.4.2
+FROM oven/bun:${BUN_VERSION}
+
+WORKDIR /app
+
+ARG SERVICE
+ARG PORT=4000
+ENV SERVICE=${SERVICE} PORT=${PORT} NODE_ENV=production
+
+# Install workspace deps first (better layer caching).
+COPY package.json bun.lock .npmrc turbo.json tsconfig.json ./
+COPY apps ./apps
+COPY packages ./packages
+RUN bun install
+
+EXPOSE ${PORT}
+
+# Bun runs TypeScript directly — no build step needed for the services.
+CMD ["sh", "-c", "bun apps/${SERVICE}/src/index.ts"]

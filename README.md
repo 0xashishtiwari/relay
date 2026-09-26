@@ -303,6 +303,23 @@ Logout GET /auth/logout → Redis DEL + clearCookie; account deletion purges Mon
 
 ---
 
+## Deploying to Azure
+
+One-shot deploy (infra + images + apps) via Container Apps:
+
+```bash
+cp deploy/deploy.env.example deploy/deploy.env  # fill secrets (git-ignored)
+bash deploy/deploy.sh                            # full deploy
+SKIP_BUILD=1 bash deploy/deploy.sh               # redeploy config only
+DESTROY=1 bash deploy/deploy.sh                  # delete the resource group
+```
+
+What it provisions: resource group, ACR, Container Apps environment, Cosmos DB (Mongo API), Azure Cache for Redis (Standard, for session persistence), Storage account + container; builds all 6 images in ACR (`Dockerfile.backend`, `apps/web/Dockerfile`); deploys backends on internal ingress and gateway/web externally, wiring `*_SERVICE_URL`s to internal FQDNs. `NEXT_PUBLIC_*` are baked into the web image, so changing them rebuilds it. Custom domains via `WEB_DOMAIN`/`GATEWAY_DOMAIN` (set DNS CNAMEs first, then re-run so `FRONTEND_URL` matches for CORS).
+
+Notes: auth reads Firebase from `FIREBASE_*` env vars in containers (local dev still falls back to `serviceAccountkey.json`); Redis uses `rediss://` (TLS) which `ioredis` accepts; Cosmos Mongo connections append `retrywrites=false` automatically in the script.
+
+---
+
 ## Development
 
 ```bash
