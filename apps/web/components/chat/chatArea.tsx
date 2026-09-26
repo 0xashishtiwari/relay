@@ -8,10 +8,12 @@ import {
   getMessages,
   sendMessage as sendAgentMessage,
   updateConversation as updateConversationApi,
+  uploadAttachment,
 } from "../../lib/conversation";
-import type { AgentName } from "../../lib/conversation";
+import type { AgentName, Attachment } from "../../lib/conversation";
 import type { Artifact as ConversationArtifact } from "../../lib/conversation";
 import type { Conversation } from "../../store/conversation.store";
+import { getErrorMessage } from "../../lib/errors";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -87,6 +89,8 @@ const AGENT_LABELS: Record<AgentName, string> = {
   imageGen: "Image",
   ppt: "Presentation",
   pdf: "PDF",
+  pdfRag: "PDF Q&A",
+  imageRag: "Image Q&A",
 };
 
 const AGENT_OPTIONS: Array<readonly [string, AgentName]> = [
@@ -97,7 +101,12 @@ const AGENT_OPTIONS: Array<readonly [string, AgentName]> = [
   ["Image", "imageGen"],
   ["Presentation", "ppt"],
   ["PDF", "pdf"],
+  ["PDF Q&A", "pdfRag"],
+  ["Image Q&A", "imageRag"],
 ];
+
+const UPLOAD_ACCEPT = "image/png,image/jpeg,image/webp,application/pdf";
+const DEFAULT_FILE_PROMPT = "Analyze this file in detail.";
 
 const extractPdfUrls = (content: string) => {
   const urls = new Set<string>();
@@ -128,7 +137,37 @@ const extractPptUrls = (content: string) => {
   return Array.from(urls);
 };
 
+// Clipboard with a legacy fallback — navigator.clipboard rejects on
+// non-secure origins and denied permissions, failing silently otherwise.
+const copyText = async (text: string): Promise<boolean> => {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+};
+
 const InlineCode = ({ className, children }: { className?: string; children?: ReactNode }) => <code className={className}>{children}</code>;
+
+// User bubbles render plain text (no markdown), so a persisted attachment
+// link like [📄 name](https://long-sas-url) would expose the raw URL —
+// collapse markdown links to their label. The download card below still
+// carries the real link.
+const stripMarkdownLinks = (content: string) =>
+  content.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, "$1").trim();
 
 const FileDownloadCard = ({ url, kind, title }: { url: string; kind: "PDF" | "PPT"; title?: string }) => {
   const ext = kind === "PPT" ? ".pptx" : ".pdf";
@@ -276,7 +315,7 @@ const AgentActivity = ({ isGenerating, agent }: { isGenerating: boolean; agent: 
         ))}
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
-        {["Search", "Coding", "Presentation", "PDF", "Image"].map((a, i) => (
+        {["Search", "Coding", "Presentation", "PDF", "Image", "PDF Q&A", "Image Q&A"].map((a, i) => (
           <motion.span
             key={a}
             initial={{ opacity: 0, scale: 0.96 }}
@@ -313,7 +352,13 @@ export default function ChatArea({
   const [selectedAgent, setSelectedAgent] = useState<AgentName>("auto");
   const [showPlus, setShowPlus] = useState(false);
   const [showAgentMenu, setShowAgentMenu] = useState(false);
+  const [attachment, setAttachment] = useState<Attachment | null>(null);
+  const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const plusRef = useRef<HTMLDivElement>(null);
   const agentRef = useRef<HTMLDivElement>(null);
@@ -350,7 +395,7 @@ export default function ChatArea({
         // The panel only opens for fresh coding output (see sendMessage).
       } catch (e) {
         console.error("Failed to load messages:", e);
-        if (!cancelled) setSendError("Unable to load this conversation.");
+        if (!cancelled) setSendError(getErrorMessage(e, "Unable to load this conversation."));
       } finally {
         if (!cancelled) setIsLoadingMessages(false);
       }
@@ -379,27 +424,102 @@ export default function ChatArea({
     onArtifactOpen?.();
   };
 
+  const handleCopy = async (id: string, content: string) => {
+    const ok = await copyText(content);
+    if (!ok) {
+      setSendError("Couldn't copy to clipboard in this browser. Select the text manually.");
+      return;
+    }
+    setCopiedId(id);
+    window.setTimeout(() => setCopiedId((current) => (current === id ? null : current)), 1500);
+  };
+
+  const clearAttachment = () => {
+    setAttachment(null);
+    setUploadError("");
+    if (attachmentPreview) {
+      URL.revokeObjectURL(attachmentPreview);
+      setAttachmentPreview(null);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || isUploading || isGenerating) return;
+    setUploadError("");
+    setShowPlus(false);
+    // Instant local preview while the upload runs.
+    if (file.type.startsWith("image/")) {
+      if (attachmentPreview) URL.revokeObjectURL(attachmentPreview);
+      setAttachmentPreview(URL.createObjectURL(file));
+    } else {
+      setAttachmentPreview(null);
+    }
+    setAttachment(null);
+    try {
+      setIsUploading(true);
+      const uploaded = await uploadAttachment(file);
+      setAttachment(uploaded);
+      // Auto-switch to the matching Q&A agent so Auto routes correctly even
+      // if the user picked something else before attaching.
+      setSelectedAgent(uploaded.mimeType === "application/pdf" ? "pdfRag" : "imageRag");
+      textareaRef.current?.focus();
+    } catch (err) {
+      console.error("Upload failed:", err);
+      setUploadError(getErrorMessage(err, "Couldn't upload the file. Try again."));
+      if (attachmentPreview) {
+        URL.revokeObjectURL(attachmentPreview);
+        setAttachmentPreview(null);
+      }
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   const sendMessage = async (e?: FormEvent<HTMLFormElement>) => {
     e?.preventDefault();
     const content = message.trim();
-    if (!content || isGenerating) return;
+    if ((!content && !attachment) || isGenerating || isUploading) return;
     setSendError("");
+    setUploadError("");
     setIsGenerating(true);
+    // An attachment always routes to its Q&A agent, regardless of picker.
+    const effectiveAgent: AgentName = attachment
+      ? (attachment.mimeType === "application/pdf" ? "pdfRag" : "imageRag")
+      : selectedAgent;
+    const effectivePrompt = content || DEFAULT_FILE_PROMPT;
+    const titleText = content || attachment?.fileName || effectivePrompt;
+    const sentAttachment = attachment;
+    const filePayload = sentAttachment
+      ? { url: sentAttachment.url, mimeType: sentAttachment.mimeType, fileName: sentAttachment.fileName }
+      : undefined;
     let conversationToSync: Conversation | undefined;
     try {
       let activeConversationId = conversationId;
       if (!activeConversationId) {
         const created = await createConversationApi();
         activeConversationId = created._id;
-        conversationToSync = await updateConversationApi(activeConversationId, content);
+        conversationToSync = await updateConversationApi(activeConversationId, titleText);
       } else if (messages.length === 0) {
-        conversationToSync = await updateConversationApi(activeConversationId, content);
+        conversationToSync = await updateConversationApi(activeConversationId, titleText);
       }
-      const userMessage: Message = { id: crypto.randomUUID(), role: "user", content };
+      const isPdfAttachment = sentAttachment?.mimeType === "application/pdf";
+      const userContent = sentAttachment && isPdfAttachment
+        ? `${effectivePrompt}\n\n[📄 ${sentAttachment.fileName}](${sentAttachment.url})`
+        : effectivePrompt;
+      const userMessage: Message = {
+        id: crypto.randomUUID(),
+        role: "user",
+        content: userContent,
+        images: sentAttachment && !isPdfAttachment ? [sentAttachment.url] : undefined,
+      };
       setMessages((c) => [...c, userMessage]);
       setMessage("");
+      clearAttachment();
       if (textareaRef.current) textareaRef.current.style.height = "auto";
-      const agentResponse = await sendAgentMessage(activeConversationId, content, selectedAgent);
+      const agentResponse = await sendAgentMessage(activeConversationId, effectivePrompt, effectiveAgent, filePayload);
       const responseText = typeof agentResponse?.response === "string" ? agentResponse.response : "";
       if (!responseText.trim()) {
         throw new Error("Empty response from agent");
@@ -434,7 +554,19 @@ export default function ChatArea({
       }
     } catch (err) {
       console.error("Failed to send message:", err);
-      setSendError("Relay couldn't complete that request. Try again.");
+      // Roll back the optimistic user message so retry resends cleanly,
+      // but keep the newly created conversation so retry reuses it.
+      setMessages((c) => (c.length > 0 && c[c.length - 1]?.role === "user" ? c.slice(0, -1) : c));
+      setMessage(content);
+      if (sentAttachment) {
+        setAttachment(sentAttachment);
+        if (sentAttachment.mimeType.startsWith("image/")) setAttachmentPreview(sentAttachment.url);
+      }
+      if (conversationToSync) {
+        if (conversationId) onConversationUpdated?.(conversationToSync);
+        else onConversationCreated?.(conversationToSync);
+      }
+      setSendError(getErrorMessage(err, "Relay couldn't complete that request. Try again."));
     } finally {
       setIsGenerating(false);
       textareaRef.current?.focus();
@@ -508,9 +640,6 @@ export default function ChatArea({
             aria-label="Artifacts"
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
-          </button>
-          <button type="button" aria-label="More" className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.4" /><circle cx="12" cy="12" r="1.4" /><circle cx="19" cy="12" r="1.4" /></svg>
           </button>
         </div>
       </header>
@@ -626,7 +755,25 @@ export default function ChatArea({
                         }
                       >
                         {isUser ? (
-                          item.content
+                          <>
+                            {stripMarkdownLinks(item.content) && (
+                              <span className="whitespace-pre-wrap break-words">{stripMarkdownLinks(item.content)}</span>
+                            )}
+                            {item.images && item.images.length > 0 && (
+                              <div className="mt-2.5 grid w-full gap-2">
+                                {item.images.map((img, idx) => (
+                                  <SearchImage key={`${img}-${idx}`} src={img} index={idx} />
+                                ))}
+                              </div>
+                            )}
+                            {extractPdfUrls(item.content).length > 0 && (
+                              <div className="mt-2 w-full space-y-2">
+                                {extractPdfUrls(item.content).map((pdfUrl) => (
+                                  <FileDownloadCard key={pdfUrl} url={pdfUrl} kind="PDF" />
+                                ))}
+                              </div>
+                            )}
+                          </>
                         ) : (
                           <div className="relay-markdown">
                             {item.content && (
@@ -658,7 +805,7 @@ export default function ChatArea({
                                 ))}
                               </div>
                             )}
-                            {!isUser && extractPdfUrls(item.content).length > 0 && (
+                            {extractPdfUrls(item.content).length > 0 && (
                               <div className="mt-2 space-y-2">
                                 {extractPdfUrls(item.content).map((pdfUrl) => (
                                   <FileDownloadCard key={pdfUrl} url={pdfUrl} kind="PDF" />
@@ -685,20 +832,14 @@ export default function ChatArea({
 
                       {!isUser && (
                         <div className="mt-1.5 hidden gap-1 opacity-0 transition-opacity group-hover:flex group-hover:opacity-100">
-                          {[
-                            ["Copy", () => navigator.clipboard.writeText(item.content)],
-                            ["Retry", () => {}],
-                            ["↑", () => {}],
-                          ].map(([label, onClick]) => (
-                            <button
-                              key={label as string}
-                              type="button"
-                              onClick={onClick as () => void}
-                              className="rounded-md border bg-card px-2 py-1 font-mono text-[11px] text-muted-foreground hover:bg-secondary hover:text-foreground"
-                            >
-                              {label as string}
-                            </button>
-                          ))}
+                          <button
+                            key="copy"
+                            type="button"
+                            onClick={() => handleCopy(item.id, item.content)}
+                            className="rounded-md border bg-card px-2 py-1 font-mono text-[11px] text-muted-foreground hover:bg-secondary hover:text-foreground"
+                          >
+                            {copiedId === item.id ? "Copied ✓" : "Copy"}
+                          </button>
                         </div>
                       )}
                     </div>
@@ -737,9 +878,19 @@ export default function ChatArea({
           <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }} className="shrink-0 px-4 sm:px-6">
             <div className="mx-auto mb-2 flex max-w-[760px] items-center justify-between rounded-lg border border-destructive/15 bg-destructive/5 px-3 py-2.5">
               <p className="text-xs text-destructive">{sendError}</p>
-              <button type="button" onClick={() => setSendError("")} className="ml-3 text-xs text-muted-foreground hover:text-foreground">
-                Dismiss
-              </button>
+              <div className="ml-3 flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => sendMessage()}
+                  disabled={isGenerating}
+                  className="rounded-md bg-destructive px-2.5 py-1 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                >
+                  Retry
+                </button>
+                <button type="button" onClick={() => setSendError("")} className="text-xs text-muted-foreground hover:text-foreground">
+                  Dismiss
+                </button>
+              </div>
             </div>
           </motion.div>
         )}
@@ -754,6 +905,65 @@ export default function ChatArea({
               message.trim() || conversationId ? "border-border focus-within:border-ring focus-within:shadow-md" : "border-border opacity-90"
             }`}
           >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={UPLOAD_ACCEPT}
+              onChange={handleFileSelect}
+              className="hidden"
+              aria-hidden="true"
+              tabIndex={-1}
+            />
+            <AnimatePresence>
+              {(attachment || attachmentPreview || isUploading || uploadError) && (
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 4 }}
+                  transition={{ duration: 0.15 }}
+                  className="px-1 pb-2"
+                >
+                  {uploadError ? (
+                    <div className="flex items-center justify-between rounded-lg border border-destructive/15 bg-destructive/5 px-3 py-2">
+                      <p className="text-xs text-destructive">{uploadError}</p>
+                      <button type="button" onClick={() => setUploadError("")} className="ml-3 text-xs text-muted-foreground hover:text-foreground">
+                        Dismiss
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2.5 rounded-lg border bg-secondary/40 px-2.5 py-2">
+                      {attachmentPreview ? (
+                        <img src={attachmentPreview} alt="Upload preview" className="h-10 w-10 rounded-md border object-cover" />
+                      ) : (
+                        <span className="flex h-10 w-10 items-center justify-center rounded-md bg-red-500/10 font-mono text-[10px] font-bold text-red-600 dark:text-red-400">
+                          PDF
+                        </span>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13px] font-medium">
+                          {attachment?.fileName ?? "Uploading…"}
+                        </p>
+                        <p className="font-mono text-[11px] text-muted-foreground">
+                          {isUploading ? "Uploading…" : attachment ? `${(attachment.size / 1024).toFixed(0)} KB · expires in 24h` : ""}
+                        </p>
+                      </div>
+                      {isUploading ? (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-border border-t-foreground" />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={clearAttachment}
+                          aria-label="Remove attachment"
+                          className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
             <textarea
               ref={textareaRef}
               value={message}
@@ -786,11 +996,20 @@ export default function ChatArea({
                         className="absolute bottom-9 left-0 z-10 w-48 overflow-hidden rounded-lg border bg-popover p-1 shadow-lg"
                       >
                         {[
-                          ["Upload file", "↗"],
-                          ["Add image", "◈"],
-                          ["Add context", "◎"],
-                        ].map(([label, icon]) => (
-                          <button key={label} type="button" onClick={() => setShowPlus(false)} className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-xs hover:bg-secondary">
+                          { label: "Upload file", icon: "↗", action: () => fileInputRef.current?.click() },
+                          { label: "Add image", icon: "◈", action: () => fileInputRef.current?.click() },
+                          { label: "Add context", icon: "◎", action: () => textareaRef.current?.focus() },
+                        ].map(({ label, icon, action }) => (
+                          <button
+                            key={label}
+                            type="button"
+                            onClick={() => {
+                              setShowPlus(false);
+                              action();
+                            }}
+                            disabled={isUploading || isGenerating}
+                            className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-xs hover:bg-secondary disabled:opacity-40"
+                          >
                             <span>{label}</span>
                             <span className="font-mono text-[11px] text-muted-foreground">{icon}</span>
                           </button>
@@ -838,20 +1057,12 @@ export default function ChatArea({
                   </AnimatePresence>
                 </div>
 
-                <button
-                  type="button"
-                  disabled={isGenerating}
-                  aria-label="Attach"
-                  className="hidden h-8 w-8 items-center justify-center rounded-full border bg-secondary text-muted-foreground hover:bg-secondary/80 sm:flex disabled:opacity-30"
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="m21.4 11.6-8.8 8.8a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.7-8.7" /></svg>
-                </button>
               </div>
 
               <motion.button
                 whileTap={{ scale: 0.96 }}
                 type="submit"
-                disabled={!message.trim() || isGenerating}
+                disabled={(!message.trim() && !attachment) || isGenerating || isUploading}
                 aria-label="Send message"
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-30"
               >

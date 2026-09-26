@@ -7,6 +7,7 @@ import Artifact from "../../components/chat/Artifact";
 import ChatArea from "../../components/chat/chatArea";
 import Sidebar from "../../components/chat/sidebar";
 import { getCurrentUser } from "../../lib/auth";
+import { getErrorMessage, isAuthError } from "../../lib/errors";
 import { auth as firebaseAuth } from "../../lib/firebase";
 import { useUserStore } from "../../store/user.store";
 import { Conversation, useConversationStore } from "../../store/conversation.store";
@@ -65,7 +66,17 @@ export default function ChatPage() {
         setIsCheckingAuth(false);
       } catch (error) {
         console.error("Failed to load signed-in user:", error);
+        if (isAuthError(error)) {
+          // Session is definitively invalid — force re-login.
+          setUser(null);
+          router.replace("/auth");
+          return;
+        }
         // Network error — don't force logout, show chat with cached store
+        toast.error("Couldn't reach the server", {
+          description: getErrorMessage(error, "Working offline with cached data."),
+          duration: 4000,
+        });
         setIsCheckingAuth(false);
       } finally {
         setUserLoading(false);

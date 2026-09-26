@@ -16,6 +16,7 @@ import {
   type PlanId,
   type VerifyPaymentUser,
 } from "../lib/billing";
+import { getErrorMessage } from "../lib/errors";
 
 interface BillingDrawerProps {
   open: boolean;
@@ -102,6 +103,10 @@ export default function BillingDrawer({ open, onClose }: BillingDrawerProps) {
       return;
     }
 
+    // lastPayload is hoisted for the CREDIT_SYNC_FAILED retry path in catch:
+    // the same verify payload can be resent idempotently (no double charge).
+    let lastPayload: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string } | null = null;
+
     try {
       setPendingPlan(planId);
 
@@ -138,11 +143,12 @@ export default function BillingDrawer({ open, onClose }: BillingDrawerProps) {
                 razorpay_payment_id: string;
                 razorpay_signature: string;
               };
-              verifyPayment({
+              lastPayload = {
                 razorpay_order_id: r.razorpay_order_id,
                 razorpay_payment_id: r.razorpay_payment_id,
                 razorpay_signature: r.razorpay_signature,
-              })
+              };
+              verifyPayment(lastPayload)
                 .then((result) => {
                   verifiedUser = result.user;
                   resolve();
@@ -176,13 +182,33 @@ export default function BillingDrawer({ open, onClose }: BillingDrawerProps) {
       });
       onClose();
     } catch (e: unknown) {
-      const axiosMsg =
-        (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      const msg =
-        axiosMsg ||
-        (e instanceof Error ? e.message : "Payment failed. Try again.");
+      const code = (e as { code?: string })?.code;
+      // Payment was captured but credit sync failed: retry the SAME verify
+      // (idempotent server-side) instead of forcing a second purchase.
+      if (code === "CREDIT_SYNC_FAILED" && lastPayload) {
+        try {
+          const retry = await verifyPayment(lastPayload);
+          const nextUser = retry.user ? toStoreUser(retry.user, user) : null;
+          if (nextUser) setUser(nextUser);
+          else await refreshUser();
+          toast.success(`${PLANS[planId].name} activated`, {
+            description: `${PLANS[planId].credits} credits added to your account.`,
+          });
+          onClose();
+          return;
+        } catch (retryErr) {
+          console.error("Billing verify retry failed:", retryErr);
+          const retryMsg = getErrorMessage(retryErr, "Payment captured but credits are pending. Please contact support with your order id.");
+          setError(retryMsg);
+          toast.error("Credits pending", { description: retryMsg });
+          return;
+        } finally {
+          setPendingPlan(null);
+        }
+      }
+      const msg = getErrorMessage(e, "Payment failed. Try again.");
       // User-dismissed checkout is not an error worth a red banner.
-      if (msg.includes("closed before completion")) {
+      if (/closed before completion|cancelled|canceled|dismissed/i.test(msg)) {
         setPendingPlan(null);
         return;
       }

@@ -1,6 +1,7 @@
 import { agentState } from "../graph/state";
 import { imageSearchTool, searchTool } from "../config/tavily";
 import { getMemory } from "../config/memory";
+import { deductCredits } from "../utils/deductCredits";
 
 const requestsImages = (prompt: string, history: Array<{ role?: string; content?: string }>) => {
     const recentConversation = history
@@ -21,7 +22,7 @@ const requestsImages = (prompt: string, history: Array<{ role?: string; content?
 
 export const searchAgent = async (params: typeof agentState.State) => {
     try {
-        const history = await getMemory(params.conversationId);
+        const history = await getMemory(params.conversationId, params.userId);
         const useImageSearch = requestsImages(params.prompt, history);
         const result = await (useImageSearch ? imageSearchTool : searchTool).invoke({
             query: params.prompt,
@@ -35,6 +36,8 @@ export const searchAgent = async (params: typeof agentState.State) => {
                 (image: unknown): image is string => typeof image === "string",
             )
             : [];
+
+            await deductCredits(params.userId, "search");
 
         return {
             ...params,

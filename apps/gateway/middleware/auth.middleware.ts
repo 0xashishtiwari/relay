@@ -1,6 +1,6 @@
-
-import type { Request, Response, NextFunction } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { redisClient } from "@repo/redis";
+import { AppError } from "./error.middleware";
 
 declare global {
     namespace Express {
@@ -10,84 +10,38 @@ declare global {
     }
 }
 
-
-const protect = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const { session } = req.cookies;
-        if (!session) {
-            return res.status(401).json({
-                message: "Unauthorized"
-            });
-        }
-
-        const key = `session:${session}`;
-        const sessionData = await redisClient.get(key);
-
-        if (!sessionData) {
-            return res.status(401).json({
-                message: "Unauthorized"
-            });
-        }
-
-        req.user = JSON.parse(sessionData);
-        next();
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({
-            message: "Internal server error"
-        });
+const protect = async (req: Request, _res: Response, next: NextFunction) => {
+    const { session } = req.cookies ?? {};
+    if (!session || typeof session !== "string") {
+        return next(new AppError(401, "Unauthorized: missing session", "UNAUTHORIZED"));
     }
-}
+
+    let sessionData: string | null;
+    try {
+        sessionData = await redisClient.get(`session:${session}`);
+    } catch (err) {
+        console.error("Auth middleware: redis lookup failed:", err);
+        return next(new AppError(503, "Authentication service unavailable", "SERVICE_UNAVAILABLE"));
+    }
+
+    if (!sessionData) {
+        return next(new AppError(401, "Unauthorized: session expired or invalid", "UNAUTHORIZED"));
+    }
+
+    try {
+        req.user = JSON.parse(sessionData);
+    } catch {
+        // Corrupt session payload must not surface as 500 — treat as unauthenticated
+        // and best-effort delete the bad key.
+        redisClient.del(`session:${session}`).catch(() => undefined);
+        return next(new AppError(401, "Unauthorized: corrupt session", "UNAUTHORIZED"));
+    }
+
+    if (!req.user?.userId) {
+        return next(new AppError(401, "Unauthorized: malformed session", "UNAUTHORIZED"));
+    }
+
+    next();
+};
 
 export default protect;
-// const protect = async (
-//   req: Request,
-//   res: Response,
-//   next: NextFunction
-// ) => {
-//   try {
-//     console.log("========== AUTH ==========");
-//     console.log("URL:", req.method, req.originalUrl);
-//     console.log("Cookies:", req.cookies);
-//     console.log("Session:", req.cookies?.session);
-
-//     const { session } = req.cookies;
-
-//     if (!session) {
-//       console.log("❌ No session cookie");
-
-//       return res.status(401).json({
-//         message: "Unauthorized",
-//       });
-//     }
-
-//     const key = `session:${session}`;
-
-//     console.log("Redis key:", key);
-
-//     const sessionData = await redisClient.get(key);
-
-//     if (!sessionData) {
-//       console.log("❌ Session not found in Redis");
-
-//       return res.status(401).json({
-//         message: "Unauthorized",
-//       });
-//     }
-
-//     req.user = JSON.parse(sessionData);
-
-//     console.log("✅ Authenticated user:", req.user);
-
-//     next();
-//   } catch (err) {
-//     console.error("Auth error:", err);
-
-//     return res.status(500).json({
-//       message: "Internal server error",
-//     });
-//   }
-// };
-
-// export default protect;

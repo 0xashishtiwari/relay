@@ -11,3 +11,11 @@ redisClient.on('connect', () => {
 redisClient.on('error', (err) => {
   console.error('Redis error:', err);
 });
+
+export { rateLimit, defaultKeyGenerator, skipHealthCheck } from "./rate-limit.js";
+export type {
+  RateLimitOptions,
+  RateLimitRequest,
+  RateLimitResponse,
+  RateLimitNext,
+} from "./rate-limit.js";

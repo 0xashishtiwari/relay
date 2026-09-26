@@ -4,6 +4,7 @@ import axios from "axios";
 import { randomUUID } from "node:crypto";
 import { uploadFile } from "../config/storage";
 import { generateSasUrl } from "../config/storage/storage";
+import { deductCredits } from "../utils/deductCredits";
 
 export const imageGenAgent = async (
     state: typeof agentState.State
@@ -150,17 +151,17 @@ Generate the final visual prompt now.
             typeof res.content === "string"
                 ? res.content
                 : res.content
-                      .map((block) =>
-                          typeof block === "string"
-                              ? block
-                              : typeof block === "object" &&
-                                  block !== null &&
-                                  "text" in block &&
-                                  typeof block.text === "string"
+                    .map((block) =>
+                        typeof block === "string"
+                            ? block
+                            : typeof block === "object" &&
+                                block !== null &&
+                                "text" in block &&
+                                typeof block.text === "string"
                                 ? block.text
                                 : ""
-                      )
-                      .join(" ");
+                    )
+                    .join(" ");
 
         if (!imagePrompt.trim()) {
             throw new Error("Image prompt generation failed");
@@ -206,6 +207,9 @@ Generate the final visual prompt now.
         console.log(
             `Image uploaded to Azure: ${blobName}`
         );
+
+
+        await deductCredits(state.userId, "imageGen");
 
         return {
             ...state,

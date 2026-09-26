@@ -26,6 +26,10 @@ export const getModel = async (agent: string) => {
             return openrouter;
         case "pdf":
             return gemini;
+        case "pdfRag":
+            return gemini;
+        case "imageRag":
+            return gemini;
         case "ppt":
             return gemini;
         case "router":

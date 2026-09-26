@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import api from "../../lib/axios";
-import { createConversation as createConversationApi, getConversations } from "../../lib/conversation";
+import { createConversation as createConversationApi, getConversations, deleteConversation as deleteConversationApi } from "../../lib/conversation";
+import { getErrorMessage } from "../../lib/errors";
 import { useUserStore } from "../../store/user.store";
 import { auth } from "../../lib/firebase";
 import { signOut } from "firebase/auth";
@@ -81,6 +81,8 @@ export default function Sidebar({ activeConversationId, onConversationSelect, on
   const [search, setSearch] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -90,7 +92,6 @@ export default function Sidebar({ activeConversationId, onConversationSelect, on
   const [billingOpen, setBillingOpen] = useState(false);
   const [isDark, setIsDark] = useState(true);
   const menuRef = useRef<HTMLDivElement>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("relay-theme");
@@ -118,10 +119,12 @@ export default function Sidebar({ activeConversationId, onConversationSelect, on
     const load = async () => {
       try {
         if (!hasCached) setLoading(true);
+        setLoadError("");
         const data = await getConversations();
         setConversations(data);
       } catch (e) {
         console.error("Failed to load conversations:", e);
+        if (!hasCached) setLoadError(getErrorMessage(e, "Couldn't load conversations."));
       } finally {
         setLoading(false);
       }
@@ -129,28 +132,14 @@ export default function Sidebar({ activeConversationId, onConversationSelect, on
     load();
   }, [user?.userId, setConversations, setLoading]);
 
-  // keyboard shortcuts
+  // Escape closes the open menu.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      const mod = e.metaKey || e.ctrlKey;
-      if (mod && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        if (collapsed) setCollapsed(false);
-        searchRef.current?.focus();
-      }
-      if (mod && e.shiftKey && e.key.toLowerCase() === "n") {
-        e.preventDefault();
-        handleCreateConversation();
-      }
-      if (mod && e.key.toLowerCase() === "b") {
-        e.preventDefault();
-        setCollapsed(!collapsed);
-      }
       if (e.key === "Escape") setMenuOpen(false);
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [collapsed]);
+  }, []);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -192,7 +181,7 @@ export default function Sidebar({ activeConversationId, onConversationSelect, on
       onConversationSelect?.(conversation);
     } catch (e) {
       console.error("Failed to create conversation:", e);
-      setCreateError("Couldn't create a conversation. Try again.");
+      setCreateError(getErrorMessage(e, "Couldn't create a conversation. Try again."));
     } finally {
       setIsCreating(false);
     }
@@ -201,12 +190,14 @@ export default function Sidebar({ activeConversationId, onConversationSelect, on
   const handleDeleteConversation = async (conversationId: string) => {
     try {
       setIsDeleting(true);
-      await api.delete("/chat/conversation", { data: { conversationId } });
+      setDeleteError("");
+      await deleteConversationApi(conversationId);
       removeConversation(conversationId);
       if (selectedConversation?._id === conversationId) setSelectedConversation(null);
       setDeleteId(null);
     } catch (e) {
       console.error("Failed to delete:", e);
+      setDeleteError(getErrorMessage(e, "Couldn't delete the conversation. Try again."));
     } finally {
       setIsDeleting(false);
     }
@@ -254,7 +245,7 @@ export default function Sidebar({ activeConversationId, onConversationSelect, on
     } catch (e) {
       console.error("Failed to delete account:", e);
       toast.error("Couldn't delete account", {
-        description: "Try again. If it persists, sign out and back in.",
+        description: getErrorMessage(e, "Try again. If it persists, sign out and back in."),
       });
     } finally {
       setIsDeletingAccount(false);
@@ -287,7 +278,7 @@ export default function Sidebar({ activeConversationId, onConversationSelect, on
               type="button"
               onClick={onClose}
               aria-label="Collapse sidebar"
-              title="Collapse (⌘B)"
+              title="Collapse"
               className="hidden h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-black/[0.04] hover:text-foreground dark:hover:bg-white/[0.06] lg:flex"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M15 18 9 12l6-6" /><path d="M9 6H5v12h4" /></svg>
@@ -326,9 +317,20 @@ export default function Sidebar({ activeConversationId, onConversationSelect, on
                 </span>
                 {isCreating ? "Creating…" : "New chat"}
               </span>
-              {!isCreating && <span className="hidden rounded border bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:block">⌘⇧N</span>}
             </motion.button>
             {createError && <p className="mt-2 rounded-md border border-destructive/15 bg-destructive/5 px-2.5 py-2 text-[11px] text-destructive">{createError}</p>}
+            {loadError && (
+              <p className="mt-2 rounded-md border border-destructive/15 bg-destructive/5 px-2.5 py-2 text-[11px] text-destructive">
+                {loadError}{" "}
+                <button type="button" onClick={() => setLoadError("")} className="underline underline-offset-2">Dismiss</button>
+              </p>
+            )}
+            {deleteError && (
+              <p className="mt-2 rounded-md border border-destructive/15 bg-destructive/5 px-2.5 py-2 text-[11px] text-destructive">
+                {deleteError}{" "}
+                <button type="button" onClick={() => setDeleteError("")} className="underline underline-offset-2">Dismiss</button>
+              </p>
+            )}
           </div>
 
           {/* Search */}
@@ -336,18 +338,13 @@ export default function Sidebar({ activeConversationId, onConversationSelect, on
             <div className={`flex h-8 items-center gap-2 rounded-md border bg-white px-2.5 transition-colors dark:bg-[#111113] ${search ? "border-ring" : "border-border"}`}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="text-muted-foreground"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.2-3.2" /></svg>
               <input
-                ref={searchRef}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search"
                 className="min-w-0 flex-1 bg-transparent text-[13px] placeholder:text-muted-foreground outline-none"
               />
-              {search ? (
+              {search && (
                 <button type="button" onClick={() => setSearch("")} className="rounded p-0.5 text-muted-foreground hover:text-foreground" aria-label="Clear search">×</button>
-              ) : (
-                <span className="hidden items-center gap-1 rounded border bg-secondary px-1 py-0.5 font-mono text-[10px] text-muted-foreground sm:flex">
-                  <span>⌘</span>K
-                </span>
               )}
             </div>
           </div>
@@ -499,20 +496,6 @@ export default function Sidebar({ activeConversationId, onConversationSelect, on
                     transition={{ duration: 0.16, ease }}
                     className="absolute bottom-[44px] left-0 right-0 z-10 overflow-hidden rounded-lg border bg-popover p-1 shadow-lg"
                   >
-                    <button onClick={() => setMenuOpen(false)} className="flex w-full rounded-md px-3 py-1.5 text-left text-xs hover:bg-secondary">Account</button>
-                    <button onClick={() => setMenuOpen(false)} className="flex w-full rounded-md px-3 py-1.5 text-left text-xs hover:bg-secondary">Settings</button>
-                    <button
-                      onClick={() => {
-                        toggleTheme();
-                        setMenuOpen(false);
-                      }}
-                      className="flex w-full items-center justify-between rounded-md px-3 py-1.5 text-left text-xs hover:bg-secondary"
-                    >
-                      <span>Theme</span>
-                      <span className="font-mono text-[11px] text-muted-foreground">{isDark ? "Dark → Light" : "Light → Dark"}</span>
-                    </button>
-                    <button onClick={() => setMenuOpen(false)} className="flex w-full rounded-md px-3 py-1.5 text-left text-xs hover:bg-secondary">Keyboard shortcuts</button>
-                    <div className="my-1 h-px bg-border" />
                     <button onClick={handleLogout} disabled={isLoggingOut} className="flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-xs text-destructive hover:bg-destructive/10 disabled:opacity-50">
                       {isLoggingOut ? <span className="h-3 w-3 animate-spin rounded-full border border-destructive/30 border-t-destructive" /> : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></svg>}
                       {isLoggingOut ? "Signing out…" : "Sign out"}
@@ -559,10 +542,10 @@ export default function Sidebar({ activeConversationId, onConversationSelect, on
       ) : (
         /* Collapsed */
         <div className="flex flex-1 flex-col items-center gap-2 px-2 py-3">
-          <button type="button" onClick={handleCreateConversation} className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground" title="New chat (⌘⇧N)">
+          <button type="button" onClick={handleCreateConversation} className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground" title="New chat">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14" /><path d="M5 12h14" /></svg>
           </button>
-          <button type="button" onClick={() => setCollapsed(false)} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-black/[0.04] dark:hover:bg-white/[0.06]" title="Search (⌘K)">
+          <button type="button" onClick={() => setCollapsed(false)} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-black/[0.04] dark:hover:bg-white/[0.06]" title="Expand sidebar">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="11" cy="11" r="7" /><path d="m20 20-3-3" /></svg>
           </button>
           <button

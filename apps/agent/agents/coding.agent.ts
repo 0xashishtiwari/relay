@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { getModel } from "../config/llmModels";
 import { agentState } from "../graph/state";
+import { deductCredits } from "../utils/deductCredits";
 
 const CODE_INTENTS = [
     "CODE_GENERATION",
@@ -165,6 +166,7 @@ export const codingAgent = async (
     // GET USER MESSAGE
     // -----------------------------------------
 
+
     const userMessage = Array.isArray(state.prompt)
         ? String(state.prompt.at(-1) ?? "")
         : String(state.prompt ?? "");
@@ -214,6 +216,7 @@ export const codingAgent = async (
                 .trim();
 
             const data = parseGeneratedProject(rawContent);
+            await deductCredits(state.userId, "coding");
 
             return {
                 ...state,
@@ -257,7 +260,7 @@ export const codingAgent = async (
     const response = await codingLlm.invoke(
         `${GENERAL_CODING_PROMPT}\n${userMessage}`
     );
-
+    
     return {
         ...state,
 

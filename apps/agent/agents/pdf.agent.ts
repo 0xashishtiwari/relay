@@ -3,6 +3,7 @@ import { getModel } from "../config/llmModels";
 import { generatePdf } from "../utils/generatePdf";
 import { uploadFile } from "../config/storage";
 import { generateSasUrl } from "../config/storage/storage";
+import { deductCredits } from "../utils/deductCredits";
 
 const PDF_EXPIRY_HOURS = 24;
 
@@ -118,6 +119,8 @@ SCHEMA:
             uploadResult.blobName,
             PDF_EXPIRY_HOURS * 60
         );
+
+        await deductCredits(state.userId, "pdf");
 
         return {
             ...state,

@@ -1,5 +1,5 @@
 // Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
@@ -16,8 +16,15 @@ const firebaseConfig = {
     measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID as string
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+const requiredKeys = ["apiKey", "authDomain", "projectId", "appId"] as const;
+const missing = requiredKeys.filter((k) => !firebaseConfig[k]);
+if (missing.length > 0) {
+    // Fail loudly in dev so a blank login screen is never a mystery.
+    console.error(`Missing Firebase env vars: ${missing.map((k) => `NEXT_PUBLIC_FIREBASE_${k.toUpperCase()}`).join(", ")}`);
+}
+
+// Initialize Firebase (guard against HMR double-init)
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 

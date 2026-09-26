@@ -2,8 +2,17 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Instrument_Serif } from "next/font/google";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import ThemeToggle from "../components/theme-toggle";
+
+// Expressive display serif for headlines — paired with the app's grotesk body.
+const serif = Instrument_Serif({
+  subsets: ["latin"],
+  weight: ["400"],
+  style: ["normal", "italic"],
+  display: "swap",
+});
 
 // motion variants — intentional, fast, subtle
 const ease = [0.16, 1, 0.3, 1] as const;
@@ -145,9 +154,7 @@ export default function Page() {
             </Link>
             <nav className="hidden items-center gap-1 md:flex">
               {[
-                ["Product", "#product"],
                 ["Agents", "#agents"],
-                ["How it works", "#how"],
                 ["Pricing", "#pricing"],
               ].map(([label, href]) => (
                 <a key={label} href={href} className="rounded-md px-3 py-1.5 text-[13px] text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
@@ -193,9 +200,7 @@ export default function Page() {
             >
               <nav className="flex flex-col gap-1 py-4">
                 {[
-                  ["Product", "#product"],
                   ["Agents", "#agents"],
-                  ["How it works", "#how"],
                   ["Pricing", "#pricing"],
                 ].map(([label, href]) => (
                   <a key={label} href={href} onClick={() => setMobileOpen(false)} className="rounded-md px-2 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground">
@@ -224,7 +229,7 @@ export default function Page() {
             <motion.span variants={item} className="block">
               One chat.
             </motion.span>
-            <motion.span variants={item} className="block font-display font-[300] italic tracking-[-0.03em] text-foreground/70">
+            <motion.span variants={item} className={`block ${serif.className} italic font-normal tracking-[-0.02em] text-foreground/75`}>
               Every agent you need.
             </motion.span>
           </motion.h1>
@@ -243,7 +248,7 @@ export default function Page() {
               </Link>
             </motion.div>
             <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
-              <a href="#product" className="inline-flex h-10 items-center rounded-md border bg-card px-5 text-sm font-medium hover:bg-accent transition-colors">
+              <a href="#agents" className="inline-flex h-10 items-center rounded-md border bg-card px-5 text-sm font-medium hover:bg-accent transition-colors">
                 Explore Relay
               </a>
             </motion.div>
@@ -386,48 +391,38 @@ export default function Page() {
         <div className="border-y py-10 sm:py-14">
           <div className="grid gap-8 lg:grid-cols-[360px_1fr]">
             <motion.div variants={item}>
-              <h2 className="text-pretty text-[30px] font-medium leading-none tracking-[-0.03em] sm:text-[42px]">
+              <p className="font-mono text-[11px] tracking-[0.12em] text-muted-foreground uppercase">The lineup</p>
+              <h2 className="mt-3 text-pretty text-[30px] font-medium leading-[1.02] tracking-[-0.03em] sm:text-[42px]">
                 Different agents.
                 <br />
-                <span className="text-muted-foreground">One interface.</span>
+                <span className={`${serif.className} italic font-normal text-muted-foreground`}>One interface.</span>
               </h2>
-              <p className="mt-4 max-w-[32ch] text-sm leading-6 text-muted-foreground">Relay connects specialized AI agents behind a single conversational interface.</p>
+              <p className="mt-4 max-w-[32ch] text-sm leading-6 text-muted-foreground">Specialized AI agents behind a single conversation — documents, images, code, and decks included.</p>
             </motion.div>
 
             <motion.ul variants={stagger} className="divide-y border-y">
               {[
                 { name: "Chat", desc: "Reason, explain, brainstorm, and write.", icon: "◐" },
-                { name: "Search", desc: "Research information and synthesize sources.", icon: "◎" },
-                { name: "Coding", desc: "Write, debug, explain, and improve code.", icon: "‹›" },
-                { name: "Image", desc: "Generate visuals from natural language.", icon: "◈" },
-                { name: "Presentations", desc: "Turn ideas and research into structured presentations.", icon: "▭" },
+                { name: "Search", desc: "Research the web and synthesize sources.", icon: "◎" },
+                { name: "Coding", desc: "Write, debug, and ship working projects.", icon: "‹›" },
+                { name: "Image Q&A", desc: "Upload a photo and ask anything about it.", icon: "◈" },
+                { name: "PDF Q&A", desc: "Upload a document and get grounded answers.", icon: "▤" },
+                { name: "Presentations", desc: "Turn research into structured slide decks.", icon: "▭" },
               ].map((a) => (
                 <motion.li
                   key={a.name}
                   variants={item}
-                  whileHover={{ x: 2, backgroundColor: "var(--secondary)" }}
-                  transition={{ duration: 0.18 }}
                   className="group flex items-center justify-between gap-4 py-4 -mx-3 px-3 cursor-default"
                 >
                   <div className="flex items-center gap-3">
-                    <motion.span
-                      whileHover={{ scale: 1.06, borderColor: "var(--foreground)" }}
-                      className="flex h-7 w-7 items-center justify-center rounded-md border bg-card font-mono text-[11px] text-muted-foreground"
-                    >
+                    <span className="flex h-7 w-7 items-center justify-center rounded-md border bg-card font-mono text-[11px] text-muted-foreground">
                       {a.icon}
-                    </motion.span>
+                    </span>
                     <div>
                       <p className="text-sm font-medium tracking-tight">{a.name}</p>
                       <p className="text-xs leading-5 text-muted-foreground">{a.desc}</p>
                     </div>
                   </div>
-                  <motion.span
-                    initial={{ opacity: 0, x: -4 }}
-                    whileHover={{ opacity: 1, x: 0 }}
-                    className="hidden sm:inline-flex items-center gap-1 text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    Open <span>→</span>
-                  </motion.span>
                 </motion.li>
               ))}
             </motion.ul>
@@ -435,9 +430,123 @@ export default function Page() {
         </div>
       </motion.section>
 
-      {/* HOW RELAY THINKS */}
+      {/* BENTO — what one conversation can hold */}
       <motion.section
-        id="how"
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: true, margin: "-80px" }}
+        variants={staggerSlow}
+        className="mx-auto max-w-[1100px] px-6 py-10 sm:py-14"
+      >
+        <motion.div variants={item} className="flex flex-wrap items-end justify-between gap-4">
+          <h2 className="max-w-[16ch] text-pretty text-[28px] font-medium leading-[1.0] tracking-[-0.03em] sm:text-[40px]">
+            One thread. <span className={`${serif.className} italic font-normal text-muted-foreground`}>Every output.</span>
+          </h2>
+          <p className="max-w-[34ch] text-sm leading-6 text-muted-foreground">Drop a file, ask a question, get back finished work — not just text.</p>
+        </motion.div>
+
+        <motion.div variants={stagger} className="mt-8 grid gap-3 sm:grid-cols-6">
+          {/* PDF Q&A — large */}
+          <motion.div
+            variants={item}
+            whileHover={{ y: -3 }}
+            transition={{ duration: 0.22, ease }}
+            className="rounded-xl border bg-card p-5 sm:col-span-4"
+          >
+            <div className="flex h-32 items-center gap-3 overflow-hidden rounded-lg border bg-secondary/40 p-4">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-red-500/10 font-mono text-[10px] font-bold text-red-600 dark:text-red-400">PDF</span>
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="h-2 w-3/4 rounded bg-foreground/15" />
+                <div className="h-2 w-full rounded bg-foreground/10" />
+                <div className="h-2 w-5/6 rounded bg-foreground/10" />
+                <div className="inline-flex items-center gap-1.5 rounded-full border bg-card px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                  <span className="h-1 w-1 rounded-full bg-emerald-500" /> Grounded in your file
+                </div>
+              </div>
+            </div>
+            <p className="mt-4 text-sm font-medium tracking-tight">Ask your documents</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">Upload a PDF and get answers quoted straight from its pages.</p>
+          </motion.div>
+
+          {/* Image Q&A */}
+          <motion.div
+            variants={item}
+            whileHover={{ y: -3 }}
+            transition={{ duration: 0.22, ease }}
+            className="rounded-xl border bg-card p-5 sm:col-span-2"
+          >
+            <div className="relative h-32 overflow-hidden rounded-lg border bg-gradient-to-br from-sky-500/25 via-violet-500/20 to-amber-500/20">
+              <span className="absolute left-3 top-3 rounded-full border bg-card/90 px-2 py-0.5 font-mono text-[10px] backdrop-blur">◈ Image Q&A</span>
+              <span className="absolute bottom-3 left-3 right-3 truncate rounded-md border bg-card/90 px-2 py-1 font-mono text-[10px] backdrop-blur">“What does this chart show?”</span>
+            </div>
+            <p className="mt-4 text-sm font-medium tracking-tight">Ask your images</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">Photos, screenshots, charts — described and reasoned over.</p>
+          </motion.div>
+
+          {/* Code */}
+          <motion.div
+            variants={item}
+            whileHover={{ y: -3 }}
+            transition={{ duration: 0.22, ease }}
+            className="rounded-xl border bg-card p-5 sm:col-span-2"
+          >
+            <div className="h-32 space-y-2 overflow-hidden rounded-lg border bg-[#0d0d0f] p-4 font-mono text-[10px] leading-5 dark:bg-black">
+              <p><span className="text-violet-400">const</span> <span className="text-zinc-100">app</span> <span className="text-zinc-500">=</span> <span className="text-emerald-400">relay()</span></p>
+              <p className="pl-4"><span className="text-zinc-100">app.</span><span className="text-sky-400">route</span><span className="text-zinc-500">(</span><span className="text-amber-300">“task”</span><span className="text-zinc-500">)</span></p>
+              <p className="pl-4"><span className="text-zinc-100">app.</span><span className="text-sky-400">execute</span><span className="text-zinc-500">()</span> <span className="text-emerald-400">✓</span></p>
+              <p><span className="text-zinc-600">{"// shipped"}</span></p>
+            </div>
+            <p className="mt-4 text-sm font-medium tracking-tight">Ship code</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">Write, debug, and export working projects.</p>
+          </motion.div>
+
+          {/* Decks */}
+          <motion.div
+            variants={item}
+            whileHover={{ y: -3 }}
+            transition={{ duration: 0.22, ease }}
+            className="rounded-xl border bg-card p-5 sm:col-span-2"
+          >
+            <div className="flex h-32 items-end justify-center gap-2 overflow-hidden rounded-lg border bg-secondary/40 p-4">
+              {[["h-16", "opacity-40"], ["h-24", ""], ["h-20", "opacity-60"]].map(([h, op], i) => (
+                <div key={i} className={`w-16 rounded border bg-card p-1.5 shadow-sm ${h} ${op}`}>
+                  <div className="h-1.5 w-3/4 rounded bg-foreground/20" />
+                  <div className="mt-1.5 space-y-1">
+                    <div className="h-1 rounded bg-foreground/10" />
+                    <div className="h-1 w-5/6 rounded bg-foreground/10" />
+                    <div className="h-1 w-2/3 rounded bg-foreground/10" />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-sm font-medium tracking-tight">Present decks</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">Research turned into editable slide narratives.</p>
+          </motion.div>
+
+          {/* Search */}
+          <motion.div
+            variants={item}
+            whileHover={{ y: -3 }}
+            transition={{ duration: 0.22, ease }}
+            className="rounded-xl border bg-card p-5 sm:col-span-2"
+          >
+            <div className="h-32 space-y-2 overflow-hidden rounded-lg border bg-secondary/40 p-3">
+              {["12 sources synthesized", "Citations attached", "Answer with quotes"].map((t, i) => (
+                <div key={t} className="flex items-center gap-2 rounded-md border bg-card px-2.5 py-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded border bg-secondary font-mono text-[10px] text-muted-foreground">◎</span>
+                  <p className="truncate font-mono text-[10px]">{t}</p>
+                  {i === 0 && <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />}
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-sm font-medium tracking-tight">Research the web</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">Live sources, synthesized with citations.</p>
+          </motion.div>
+        </motion.div>
+      </motion.section>
+
+      {/* HOW RELAY THINKS — condensed to basics */}
+      <motion.section
         initial="hidden"
         whileInView="show"
         viewport={{ once: true, margin: "-80px" }}
@@ -447,267 +556,28 @@ export default function Page() {
         <motion.h2 variants={item} className="max-w-[14ch] text-pretty text-[28px] font-medium leading-[0.95] tracking-[-0.03em] sm:text-[42px]">
           You describe the task. Relay coordinates the work.
         </motion.h2>
-
-        <div className="relative mt-8 grid gap-6 sm:grid-cols-4">
-          <motion.div
-            initial={{ scaleX: 0 }}
-            whileInView={{ scaleX: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.7, ease, delay: 0.2 }}
-            style={{ originX: 0 }}
-            className="pointer-events-none absolute left-0 right-0 top-[18px] hidden h-px bg-border sm:block"
-          />
-          {[
-            { n: "01 — Understand", t: "Relay interprets the user's intent." },
-            { n: "02 — Route", t: "The appropriate specialized agents are selected." },
-            { n: "03 — Execute", t: "Agents perform their individual tasks." },
-            { n: "04 — Compose", t: "Relay combines the results into one response." },
-          ].map((s) => (
-            <motion.div key={s.n} variants={item} className="relative pt-2 sm:pt-6">
-              <span className="relative inline-flex bg-background pr-2 font-mono text-[11px] tracking-wide text-muted-foreground">{s.n}</span>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">{s.t}</p>
-            </motion.div>
-          ))}
-        </div>
-
-        <motion.div
-          variants={item}
-          className="mt-8 rounded-lg border bg-card px-4 py-3 flex flex-wrap items-center gap-2 text-xs"
-        >
-          <span className="font-mono text-muted-foreground">Relay is coordinating…</span>
-          <span className="h-1 w-1 rounded-full bg-border" />
-          {["Search", "Coding", "Presentation"].map((label, i) => (
-            <motion.span
-              key={label}
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.45 + i * 0.08, duration: 0.3 }}
-              className="rounded-full bg-secondary px-2 py-0.5 font-mono text-[11px]"
-            >
-              {label}
-            </motion.span>
-          ))}
-          <span className="h-1 w-1 rounded-full bg-border" />
-          <motion.span
-            initial={{ scale: 0.9, opacity: 0 }}
-            whileInView={{ scale: 1, opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.75, duration: 0.3 }}
-            className="rounded-full bg-emerald-500 px-2 py-0.5 text-[11px] font-medium text-white"
-          >
-            Complete
-          </motion.span>
-        </motion.div>
-      </motion.section>
-
-      {/* PRODUCT DEMO */}
-      <motion.section
-        id="product"
-        initial="hidden"
-        whileInView="show"
-        viewport={{ once: true, margin: "-60px" }}
-        variants={stagger}
-        className="mx-auto max-w-[1100px] px-6 py-10 sm:py-14"
-      >
-        <div className="border-y py-10 sm:py-14">
-          <motion.div variants={item} className="mx-auto max-w-[640px] text-center">
-            <h2 className="text-[28px] font-medium tracking-[-0.03em] sm:text-[40px]">A workspace that feels like a conversation.</h2>
-            <p className="mx-auto mt-3 max-w-[56ch] text-sm leading-6 text-muted-foreground">One thread can produce many kinds of output. No context switching.</p>
-          </motion.div>
-
-          <motion.div
-            variants={item}
-            whileHover={{ y: -2 }}
-            transition={{ duration: 0.25 }}
-            className="mt-8 overflow-hidden rounded-lg border bg-card shadow-sm"
-          >
-            <div className="flex items-center justify-between border-b bg-secondary/30 px-4 py-2.5">
-              <div className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full border bg-card" />
-                <span className="h-2.5 w-2.5 rounded-full border bg-card" />
-                <span className="h-2.5 w-2.5 rounded-full border bg-card" />
-              </div>
-              <span className="font-mono text-[11px] text-muted-foreground">Relay workspace</span>
-              <span className="font-mono text-[11px] text-muted-foreground">—</span>
-            </div>
-
-            <div className="grid lg:grid-cols-[180px_1fr_220px]">
-              <motion.div variants={item} className="hidden border-r bg-secondary/20 p-3 lg:block">
-                <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} className="w-full rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground">
-                  + New chat
-                </motion.button>
-                <p className="mt-4 px-2 font-mono text-[10px] tracking-widest text-muted-foreground uppercase">Recent</p>
-                <ul className="mt-2 space-y-1 text-xs">
-                  <li className="rounded-md bg-card border px-2.5 py-2 font-medium">Landing page + deck</li>
-                  <li className="px-2.5 py-1.5 text-muted-foreground">Research · AI agents</li>
-                  <li className="px-2.5 py-1.5 text-muted-foreground">Code review</li>
-                </ul>
-                <p className="mt-4 px-2 font-mono text-[10px] tracking-widest text-muted-foreground uppercase">Projects</p>
-                <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-                  <li className="px-2.5 py-1">Design trends 2026</li>
-                  <li className="px-2.5 py-1">Relay docs</li>
-                </ul>
-              </motion.div>
-
-              <div className="min-w-0 border-r">
-                <div className="space-y-4 px-4 py-5 sm:px-5">
-                  <motion.div variants={item}>
-                    <p className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">You</p>
-                    <div className="mt-2 rounded-lg border bg-secondary/50 px-3 py-2.5 text-[13px] leading-6">Build me a landing page for a developer tool, research the current design trends, and create a presentation explaining the concept.</div>
-                  </motion.div>
-
-                  <motion.div variants={stagger} className="space-y-1.5 font-mono text-[11px] text-muted-foreground">
-                    {["Searching…", "Analyzing…", "Generating…", "Building…"].map((t, i) => (
-                      <motion.p
-                        key={t}
-                        variants={item}
-                        className="flex items-center gap-2"
-                        initial={{ opacity: 0, x: -6 }}
-                        whileInView={{ opacity: 1, x: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: i * 0.12 }}
-                      >
-                        <motion.span
-                          animate={i < 3 ? { opacity: [1, 0.3, 1] } : {}}
-                          transition={i < 3 ? { duration: 1.2, repeat: Infinity, delay: i * 0.2 } : {}}
-                          className={`h-1.5 w-1.5 rounded-full ${i === 3 ? "bg-emerald-500" : "bg-foreground"}`}
-                        />
-                        {t}
-                      </motion.p>
-                    ))}
-                  </motion.div>
-
-                  <motion.div variants={item} initial={{ opacity: 0, y: 6 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="rounded-lg border bg-card p-3">
-                    <p className="text-sm font-medium">Done. Research, landing page, and deck are ready in the artifact panel →</p>
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">All produced from one conversation, with shared context.</p>
-                  </motion.div>
-                </div>
-                <div className="border-t p-3">
-                  <motion.div whileHover={{ borderColor: "var(--foreground)" }} className="flex items-center justify-between rounded-md border px-3 py-2 transition-colors">
-                    <span className="text-xs text-muted-foreground">Continue…</span>
-                    <motion.span whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md bg-primary text-xs text-primary-foreground">
-                      ↑
-                    </motion.span>
-                  </motion.div>
-                </div>
-              </div>
-
-              <motion.div variants={stagger} className="bg-secondary/20 p-3">
-                <p className="font-mono text-[10px] tracking-widest text-muted-foreground uppercase">Artifacts</p>
-                <div className="mt-3 grid gap-2">
-                  {[
-                    { name: "Research.md", meta: "12 sources · 840 words" },
-                    { name: "LandingPage.tsx", meta: "React · Tailwind" },
-                    { name: "AI-Trends.pptx", meta: "9 slides" },
-                    { name: "Generated Image", meta: "1024×768 · PNG" },
-                  ].map((f) => (
-                    <motion.div
-                      key={f.name}
-                      variants={item}
-                      whileHover={{ y: -2, borderColor: "var(--foreground)" }}
-                      transition={{ duration: 0.2 }}
-                      className="rounded-md border bg-card px-3 py-2.5 cursor-default"
-                    >
-                      <p className="font-mono text-xs font-medium">{f.name}</p>
-                      <p className="font-mono text-[10px] text-muted-foreground">{f.meta}</p>
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.div>
-            </div>
-          </motion.div>
-        </div>
-      </motion.section>
-
-      {/* ARTIFACTS */}
-      <motion.section
-        initial="hidden"
-        whileInView="show"
-        viewport={{ once: true, margin: "-60px" }}
-        variants={staggerSlow}
-        className="mx-auto max-w-[1100px] px-6 py-10 sm:py-14"
-      >
-        <motion.h2 variants={item} className="text-[28px] font-medium tracking-[-0.03em] sm:text-[40px]">
-          Ideas become artifacts.
-        </motion.h2>
-        <motion.p variants={item} className="mt-3 max-w-[52ch] text-sm leading-6 text-muted-foreground">
-          Relay doesn’t only return text. It produces code, images, presentations, research, and documents you can keep.
+        <motion.p variants={item} className="mt-4 max-w-[52ch] text-sm leading-6 text-muted-foreground">
+          Relay understands your intent, routes it to the right specialist agents, and combines everything into one response.
         </motion.p>
-        <motion.div variants={stagger} className="mt-6 grid gap-3 sm:grid-cols-4">
+        <motion.div variants={stagger} className="mt-8 grid gap-3 sm:grid-cols-3">
           {[
-            { t: "Research.md", s: "Synthesis of sources, citations included." },
-            { t: "LandingPage.tsx", s: "Clean, production-ready component." },
-            { t: "AI-Trends.pptx", s: "Narrative deck, 9 slides, editable." },
-            { t: "cover.png", s: "Generated image, prompt-preserved." },
-          ].map((a) => (
+            { n: "01", t: "Describe", d: "Ask in plain words and attach files when you have them." },
+            { n: "02", t: "Relay routes", d: "The right specialist agents pick up the task on their own." },
+            { n: "03", t: "Done", d: "Answers, files, and decks land back in one thread." },
+          ].map((s) => (
             <motion.div
-              key={a.t}
+              key={s.n}
               variants={item}
-              whileHover={{ y: -3, boxShadow: "0 8px 20px rgba(0,0,0,0.06)" }}
-              transition={{ duration: 0.22, ease }}
-              className="rounded-lg border bg-card p-4 cursor-default"
+              whileHover={{ y: -2 }}
+              transition={{ duration: 0.2, ease }}
+              className="rounded-xl border bg-card p-5"
             >
-              <motion.div whileHover={{ scale: 1.01 }} className="h-20 rounded-md border bg-secondary/40" />
-              <p className="mt-3 font-mono text-xs font-medium">{a.t}</p>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">{a.s}</p>
+              <p className="font-mono text-[11px] tracking-[0.12em] text-muted-foreground">{s.n}</p>
+              <p className="mt-2 text-sm font-medium tracking-tight">{s.t}</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">{s.d}</p>
             </motion.div>
           ))}
         </motion.div>
-      </motion.section>
-
-      {/* MULTI-AGENT DIFFERENTIATOR */}
-      <motion.section
-        initial="hidden"
-        whileInView="show"
-        viewport={{ once: true, margin: "-80px" }}
-        variants={staggerSlow}
-        className="mx-auto max-w-[1100px] px-6 py-14 sm:py-20"
-      >
-        <div className="border-y py-14 sm:py-20">
-          <motion.h2 variants={item} className="text-[36px] font-medium leading-none tracking-[-0.04em] sm:text-[56px]">
-            Stop switching tools.
-          </motion.h2>
-          <motion.div variants={stagger} className="mt-8 space-y-1 font-mono text-xs leading-6 text-muted-foreground sm:text-sm">
-            {["Research in one tab.", "Code in another.", "Generate images somewhere else.", "Build presentations somewhere else."].map((line) => (
-              <motion.p key={line} variants={item}>
-                {line}
-              </motion.p>
-            ))}
-          </motion.div>
-          <motion.div
-            initial={{ scaleX: 0 }}
-            whileInView={{ scaleX: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, ease, delay: 0.3 }}
-            style={{ originX: 0 }}
-            className="mt-8 h-px w-12 bg-foreground/15"
-          />
-          <motion.p variants={item} className="mt-8 max-w-[24ch] text-[28px] font-medium leading-none tracking-[-0.03em] sm:text-[36px]">
-            Relay brings them into <span className="text-muted-foreground">one conversation.</span>
-          </motion.p>
-        </div>
-      </motion.section>
-
-      {/* TRUST / TECHNICAL */}
-      <motion.section
-        initial="hidden"
-        whileInView="show"
-        viewport={{ once: true }}
-        variants={stagger}
-        className="mx-auto max-w-[1100px] px-6 py-10 sm:py-14"
-      >
-        <motion.h2 variants={item} className="text-sm font-medium tracking-tight">
-          Built for serious work.
-        </motion.h2>
-        <motion.ul variants={stagger} className="mt-6 grid gap-3 border-y py-6 sm:grid-cols-2 lg:grid-cols-4 text-sm">
-          {["Multi-agent orchestration", "Context-aware routing", "Persistent conversations", "Streaming responses", "Tool execution", "Artifact generation", "Extensible agent architecture"].map((c) => (
-            <motion.li key={c} variants={item} className="flex items-center gap-2 py-1 text-muted-foreground">
-              <span className="h-1 w-1 rounded-full bg-foreground/40" />
-              {c}
-            </motion.li>
-          ))}
-        </motion.ul>
       </motion.section>
 
       {/* FINAL CTA */}
@@ -723,7 +593,7 @@ export default function Page() {
           <motion.h2 variants={item} className="text-pretty text-[30px] font-medium leading-[0.95] tracking-[-0.03em] sm:text-[48px]">
             One conversation.
             <br />
-            Infinite workflows.
+            <span className={`${serif.className} italic font-normal text-foreground/80`}>Infinite workflows.</span>
           </motion.h2>
           <motion.p variants={item} className="mx-auto mt-4 max-w-[44ch] text-sm leading-6 text-muted-foreground">
             Bring your agents together with Relay.
@@ -734,34 +604,96 @@ export default function Page() {
                 Start using Relay <motion.span className="inline-block" whileHover={{ x: 3 }} transition={{ duration: 0.2 }}>→</motion.span>
               </Link>
             </motion.div>
-            <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
-              <a href="#" className="inline-flex h-10 items-center rounded-md border bg-card px-5 text-sm font-medium hover:bg-accent transition-colors">
-                View documentation
-              </a>
-            </motion.div>
           </motion.div>
         </div>
       </motion.section>
 
-      {/* FOOTER — minimal */}
-      <footer className="border-t">
-        <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="mx-auto max-w-[1100px] px-6 py-8"
-        >
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className="text-sm font-semibold tracking-tight">Relay</span>
-              <span className="hidden sm:inline h-3 w-px bg-border" />
-              <span className="text-xs text-muted-foreground">A multi-agent workspace for everything you do with AI.</span>
-            </div>
-            <span className="font-mono text-xs text-muted-foreground">© 2026 Relay</span>
-          </div>
-        </motion.div>
-      </footer>
+      <Footer />
     </main>
   );
 }
+
+const Footer = () => {
+  const scrollTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
+
+  return (
+    <footer className="overflow-hidden border-t">
+      <div className="mx-auto max-w-[1100px] px-6 pt-10 sm:pt-12">
+        {/* Slim top row */}
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-[15px] font-semibold tracking-tight">Relay</p>
+            <p className="mt-1 max-w-[38ch] text-[13px] leading-6 text-muted-foreground">
+              One conversation with every specialist agent you need.
+            </p>
+          </div>
+          <nav className="flex items-center gap-1" aria-label="Footer">
+            {[
+              ["Agents", "#agents"],
+              ["Pricing", "#pricing"],
+              ["Sign in", "/auth"],
+            ].map(([label, href]) => (
+              <a
+                key={label}
+                href={href}
+                className="rounded-md px-3 py-1.5 text-[13px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                {label}
+              </a>
+            ))}
+            <span className="ml-2 hidden h-3 w-px bg-border sm:inline" />
+            <span className="ml-2 hidden items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 font-mono text-[11px] text-muted-foreground sm:inline-flex">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              Operational
+            </span>
+          </nav>
+        </div>
+
+        {/* Giant wordmark — cropped at the page edge */}
+        <h2
+          aria-label="Relay"
+          className="mt-8 select-none text-center font-bold uppercase leading-[0.78] tracking-[-0.045em] sm:mt-10 -mb-[0.13em]"
+          style={{
+            fontFamily: "var(--font-sans-next)",
+            fontSize: "clamp(4.5rem, 24vw, 23rem)",
+          }}
+        >
+          <span className="bg-gradient-to-b from-foreground via-foreground/80 to-foreground/10 bg-clip-text text-transparent">
+            Relay
+          </span>
+        </h2>
+      </div>
+
+      {/* Bottom bar sits on the crop line and occludes the wordmark tails */}
+      <div className="relative border-t bg-background">
+        <div className="mx-auto flex max-w-[1100px] items-center justify-between px-6 py-4">
+          <span className="font-mono text-[11px] text-muted-foreground">© 2026 Relay</span>
+          <div className="flex items-center gap-1">
+            {[
+              { label: "Relay on X", path: "M18.9 2H22l-6.8 7.8L23.2 22h-6.3l-4.9-6.4L6.4 22H3.3l7.3-8.3L1.6 2H8l4.4 5.9L18.9 2Zm-1.1 18h1.7L7 3.9H5.2L17.8 20Z" },
+              { label: "Relay on GitHub", path: "M12 2C6.5 2 2 6.5 2 12c0 4.4 2.9 8.2 6.8 9.5.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.2-3.4-1.2-.4-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .9.1-.7.3-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.2-.4-1.3.1-2.6 0 0 .8-.3 2.7 1a9.4 9.4 0 0 1 5 0c1.9-1.3 2.7-1 2.7-1 .5 1.3.2 2.4.1 2.6.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9v2.8c0 .3.2.6.7.5A10 10 0 0 0 22 12c0-5.5-4.5-10-10-10Z" },
+              { label: "Relay on Discord", path: "M20.3 4.4A19.8 19.8 0 0 0 15.4 3l-.6 1.2a18 18 0 0 0-5.5 0L8.6 3a19.7 19.7 0 0 0-4.9 1.5C.6 9.1-.3 13.6.2 18.1A19.9 19.9 0 0 0 6.2 21l1.3-2.1c-.7-.3-1.4-.6-2-1l.5-.4a14.2 14.2 0 0 0 12.1 0l.5.4c-.6.4-1.3.7-2 1l1.3 2.1a19.8 19.8 0 0 0 6-2.9c.6-5.2-.9-9.7-3.6-13.7ZM8.7 15.3c-1.2 0-2.1-1-2.1-2.3s.9-2.3 2.1-2.3 2.2 1 2.1 2.3c0 1.3-.9 2.3-2.1 2.3Zm6.6 0c-1.2 0-2.1-1-2.1-2.3s.9-2.3 2.1-2.3 2.2 1 2.1 2.3c0 1.3-.9 2.3-2.1 2.3Z" },
+            ].map(({ label, path }) => (
+              <a
+                key={label}
+                href="#"
+                aria-label={label}
+                className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={path} /></svg>
+              </a>
+            ))}
+            <button
+              type="button"
+              onClick={scrollTop}
+              aria-label="Back to top"
+              className="ml-1 flex h-8 w-8 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              ↑
+            </button>
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
+};

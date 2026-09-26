@@ -9,7 +9,9 @@ type AgentName =
   | "coding"
   | "pdf"
   | "ppt"
-  | "imageGen";
+  | "imageGen"
+  | "pdfRag"
+  | "imageRag";
 
 const validAgents: AgentName[] = [
   "auto",
@@ -19,6 +21,8 @@ const validAgents: AgentName[] = [
   "pdf",
   "ppt",
   "imageGen",
+  "pdfRag",
+  "imageRag",
 ];
 
 export const router = async (
@@ -28,22 +32,43 @@ export const router = async (
     return state;
   }
 
-  const llm = await getModel("router");
+  // An attached file decides the agent without needing the LLM router.
+  if (state.fileType === "pdf" || state.agent === "pdfRag") {
+    return { ...state, agent: "pdfRag" as AgentName };
+  }
+  if (state.fileType === "image" || state.agent === "imageRag") {
+    return { ...state, agent: "imageRag" as AgentName };
+  }
 
-  const response = await llm.invoke([
-    {
-      role: "system",
-      content: routerSystemPrompt,
-    },
-    {
-      role: "user",
-      content: state.prompt,
-    },
-  ]);
+  if (!state.prompt || typeof state.prompt !== "string" || state.prompt.trim() === "") {
+    return { ...state, agent: "chat" as AgentName };
+  }
 
-  const rawAgent = response.content
-    .toString()
-    .trim();
+  let llm;
+  try {
+    llm = await getModel("router");
+  } catch (err) {
+    console.error("Router: failed to load model, falling back to chat:", err);
+    return { ...state, agent: "chat" as AgentName };
+  }
+
+  let rawAgent = "";
+  try {
+    const response = await llm.invoke([
+      {
+        role: "system",
+        content: routerSystemPrompt,
+      },
+      {
+        role: "user",
+        content: state.prompt,
+      },
+    ]);
+    rawAgent = response.content.toString().trim();
+  } catch (err) {
+    console.error("Router: llm.invoke failed, falling back to chat:", err);
+    return { ...state, agent: "chat" as AgentName };
+  }
 
   const agent =
     validAgents.find(

@@ -8,6 +8,7 @@ import { auth, googleProvider } from "../../lib/firebase";
 import { signInWithPopup } from "firebase/auth";
 import api from "../../lib/axios";
 import { getCurrentUser } from "../../lib/auth";
+import { getErrorMessage } from "../../lib/errors";
 import { useUserStore } from "../../store/user.store";
 import ThemeToggle from "../../components/theme-toggle";
 
@@ -55,8 +56,8 @@ export default function Page() {
       setUser(user);
       setSuccess(true);
       setTimeout(() => router.replace("/chat"), 420);
-    } catch {
-      setError("Unable to sign you in. Please try again.");
+    } catch (err) {
+      setError(getErrorMessage(err, "Unable to sign you in. Please try again."));
       setLoading(false);
     }
   };
@@ -75,7 +76,20 @@ export default function Page() {
         setLoading(false);
         return;
       }
-      setError("Unable to sign you in. Please try again.");
+      // Firebase errors carry their own codes — map the common ones.
+      if (typeof err?.code === "string" && err.code.startsWith("auth/")) {
+        if (err.code === "auth/network-request-failed") {
+          setError("Network error. Check your connection and try again.");
+        } else if (err.code === "auth/popup-blocked") {
+          setError("The sign-in popup was blocked. Please allow popups and try again.");
+        } else if (err.code === "auth/unauthorized-domain") {
+          setError("This domain is not authorized for sign-in. Please contact support.");
+        } else {
+          setError("Google sign-in failed. Please try again.");
+        }
+      } else {
+        setError(getErrorMessage(err, "Unable to sign you in. Please try again."));
+      }
       setLoading(false);
     }
   };

@@ -9,4 +9,10 @@ export const agentState = Annotation.Root({
     searchAnswer: Annotation<string>(),
     images: Annotation<any[]>(),
     artifacts: Annotation<any[]>(),
+    userId: Annotation<string>(),
+    // Attached file for document / image Q&A (pdfRag / imageRag).
+    fileUrl: Annotation<string | undefined>(),
+    fileType: Annotation<"image" | "pdf" | undefined>(),
+    fileName: Annotation<string | undefined>(),
+    mimeType: Annotation<string | undefined>(),
 });

@@ -1,5 +1,6 @@
 import api from "./axios";
 import { User } from "../types/user";
+import { ApiError } from "./errors";
 
 export type PlanId = "free" | "starter" | "pro";
 
@@ -49,7 +50,16 @@ export interface RazorpayOrder {
 }
 
 export const createOrder = async (plan: PlanId): Promise<{ order: RazorpayOrder; plan: Plan }> => {
+  if (!plan || !(plan in PLANS)) {
+    throw new ApiError("Please select a valid plan.", { code: "VALIDATION_ERROR" });
+  }
+  if (plan === "free") {
+    throw new ApiError("The free plan cannot be purchased.", { code: "VALIDATION_ERROR" });
+  }
   const res = await api.post("/billing/createOrder", { plan });
+  if (!res.data?.order?.id) {
+    throw new ApiError("Failed to create the payment order. Please try again.", { code: "ORDER_FAILED" });
+  }
   return res.data;
 };
 
@@ -99,7 +109,7 @@ declare global {
 let razorpayScriptPromise: Promise<void> | null = null;
 
 export const loadRazorpayScript = (): Promise<void> => {
-  if (typeof window === "undefined") return Promise.reject(new Error("No window"));
+  if (typeof window === "undefined") return Promise.reject(new ApiError("Payments are only available in the browser.", { code: "NO_WINDOW" }));
   if (window.Razorpay) return Promise.resolve();
   if (razorpayScriptPromise) return razorpayScriptPromise;
   razorpayScriptPromise = new Promise<void>((resolve, reject) => {
@@ -110,7 +120,7 @@ export const loadRazorpayScript = (): Promise<void> => {
     script.onload = () => resolve();
     script.onerror = () => {
       razorpayScriptPromise = null;
-      reject(new Error("Failed to load Razorpay checkout"));
+      reject(new ApiError("Failed to load the payment window. Check your connection and try again.", { code: "SCRIPT_LOAD_FAILED" }));
     };
     document.head.appendChild(script);
   });
